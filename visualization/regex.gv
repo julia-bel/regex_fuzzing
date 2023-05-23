@@ -1,0 +1,97 @@
+digraph {
+	0 [label=ConcatenationRegex]
+	1 [label=StarRegex]
+	0 -> 1
+	2 [label=BaseRegex]
+	1 -> 2
+	3 [label=a]
+	2 -> 3
+	4 [label=StarRegex]
+	0 -> 4
+	5 [label=ConcatenationRegex]
+	4 -> 5
+	6 [label=BaseRegex]
+	5 -> 6
+	7 [label=b]
+	6 -> 7
+	8 [label=BaseRegex]
+	0 -> 8
+	9 [label=""]
+	8 -> 9
+	0 [label=ConcatenationRegex]
+	1 [label=StarRegex]
+	0 -> 1
+	2 [label=BaseRegex]
+	1 -> 2
+	3 [label=a]
+	2 -> 3
+	4 [label=StarRegex]
+	0 -> 4
+	5 [label=ConcatenationRegex]
+	4 -> 5
+	6 [label=BaseRegex]
+	5 -> 6
+	7 [label=b]
+	6 -> 7
+	8 [label=BaseRegex]
+	0 -> 8
+	9 [label=""]
+	8 -> 9
+	0 [label=ConcatenationRegex]
+	1 [label=StarRegex]
+	0 -> 1
+	2 [label=BaseRegex]
+	1 -> 2
+	3 [label=a]
+	2 -> 3
+	4 [label=StarRegex]
+	0 -> 4
+	5 [label=ConcatenationRegex]
+	4 -> 5
+	6 [label=BaseRegex]
+	5 -> 6
+	7 [label=b]
+	6 -> 7
+	8 [label=BaseRegex]
+	0 -> 8
+	9 [label=""]
+	8 -> 9
+	0 [label=ConcatenationRegex]
+	1 [label=StarRegex]
+	0 -> 1
+	2 [label=BaseRegex]
+	1 -> 2
+	3 [label=a]
+	2 -> 3
+	4 [label=StarRegex]
+	0 -> 4
+	5 [label=ConcatenationRegex]
+	4 -> 5
+	6 [label=BaseRegex]
+	5 -> 6
+	7 [label=b]
+	6 -> 7
+	8 [label=BaseRegex]
+	0 -> 8
+	9 [label=""]
+	8 -> 9
+	0 [label=ConcatenationRegex]
+	1 [label=StarRegex]
+	0 -> 1
+	2 [label=BaseRegex]
+	1 -> 2
+	3 [label=a]
+	2 -> 3
+	4 [label=StarRegex]
+	0 -> 4
+	5 [label=ConcatenationRegex]
+	4 -> 5
+	6 [label=BaseRegex]
+	5 -> 6
+	7 [label=b]
+	6 -> 7
+	8 [label=BaseRegex]
+	0 -> 8
+	9 [label=""]
+	8 -> 9
+}

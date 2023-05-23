@@ -45,8 +45,6 @@ class ERegexParser:
                     if len(parsed) != alternative + 1:
                         parsed = parsed[:alternative] + [ConcatenationRegex(parsed[alternative:], group=True)]
                     return AlternativeRegex(parsed, group=True)
-                print("curr:")
-                print([str(p) for p in parsed])
                 return ConcatenationRegex(parsed, group=True)
             elif char == ALTERNATIVE:
                 add2parsed(curr_regex)

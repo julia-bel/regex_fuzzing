@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List, Optional, Iterator
 from graphviz import Digraph
 
-from src.utils import key_generator
+from src.eregex.utils import key_generator
 from src.eregex.abstract_regex import Regex, NodeRegex
 
 
@@ -128,7 +128,7 @@ class StarRegex(NodeRegex):
         return 1
 
     def __str__(self) -> str:
-        string = f"({self.value})*" if len(self.value) > 1 else f"{self.value}*"
+        string = f"({self.value})*" if len(self.value) > 1 and not self.value.group else f"{self.value}*"
         return "(" + string + ")" if self.group else string
 
     def unpack(self):

@@ -1,5 +1,8 @@
 from typing import Tuple, Any, List
-from random import randint, choice 
+from random import randint, choice
+
+from src.eregex.abstract_regex import Regex
+from src.wrappers.regex_matcher import RegexMatcher
 
 
 class GeneticFuzzer:
@@ -17,6 +20,7 @@ class GeneticFuzzer:
         ]
 
     def _generate_dictionary(self, regex: Regex) -> None:
+        # TODO: to generate dictionary based on regex structure
         pass
 
     def execute(self, regex: Regex) -> Any:
@@ -24,6 +28,7 @@ class GeneticFuzzer:
         pass
 
     def next_generation(self) -> Any:
+        # TODO: genetic strategy based on results of fitness function
         for parent in self.generation:
             pass
         
@@ -125,7 +130,9 @@ class GeneticFuzzer:
         return result
     
     def fitness_function(self) -> float:
+        # TODO: relative coefficient
         pass
     
-    def test(self) -> :
+    def test(self) -> Any:
+        # TODO: match population
         pass

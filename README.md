@@ -1,2 +1,3 @@
-# E-RegexFuzzer
-Evolution structured fuzzing using multipatterns
+# ERegexFuzzer
+
+Evolution structured fuzzing using multipatterns.

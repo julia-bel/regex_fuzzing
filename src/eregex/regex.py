@@ -8,7 +8,7 @@ from src.eregex.abstract_regex import Regex, NodeRegex
 
 class BaseRegex(Regex):
     def __str__(self) -> str:
-        return self.value
+        return "(" + self.value + ")" if self.group else self.value
     
     def plot(
         self,
@@ -29,12 +29,12 @@ class BaseRegex(Regex):
 
 class BackrefRegex(Regex):
     """Stores reference to regex group"""
-    def __init__(self, value: str, regex_value: Regex):
-        super().__init__(value)
+    def __init__(self, value: str, regex_value: Regex, group: bool = False):
+        super().__init__(value, group)
         self.regex_value = regex_value
 
     def __str__(self) -> str:
-        return self.value
+        return "(" + self.value + ")" if self.group else self.value
     
     def __len__(self) -> int:
         return 1
@@ -55,15 +55,17 @@ class BackrefRegex(Regex):
 
 
 class ConcatenationRegex(NodeRegex):
-    def __init__(self, value: List[Regex]):
-        super().__init__(value)
+    def __init__(self, value: List[Regex], group: bool = False):
+        super().__init__(value, group)
         self.unpack()
 
     def __str__(self) -> str:
         if self.flat_len() == 1:
-            return str(self.value[0])
-        return "".join([str(v) if len(v) == 1 or not isinstance(v, AlternativeRegex)
-                        else f"({v})" for v in self.value])
+            string = str(self.value[0])
+        else:
+            string = "".join([str(v) if len(v) == 1 or not isinstance(v, AlternativeRegex)
+                              else f"({v})" for v in self.value])
+        return "(" + string + ")" if self.group else string
 
     def __len__(self) -> int:
         return sum([len(v) for v in self.value])
@@ -92,11 +94,12 @@ class ConcatenationRegex(NodeRegex):
 
 
 class AlternativeRegex(NodeRegex):
-    def __init__(self, value: List[Regex]):
-        super().__init__(value)
+    def __init__(self, value: List[Regex], group: bool = False):
+        super().__init__(value, group)
 
     def __str__(self) -> str:
-        return "|".join([str(v) for v in self.value])
+        string = "|".join([str(v) for v in self.value])
+        return "(" + string + ")" if self.group else string
 
     def unpack(self):
         pass
@@ -118,14 +121,15 @@ class AlternativeRegex(NodeRegex):
 
 
 class StarRegex(NodeRegex):
-    def __init__(self, value: Regex):
-        NodeRegex.__init__(self, value)
+    def __init__(self, value: Regex, group: bool = False):
+        NodeRegex.__init__(self, value, group)
 
     def __len__(self) -> int:
         return 1
 
     def __str__(self) -> str:
-        return f"({self.value})*" if len(self.value) > 1 else f"{self.value}*"
+        string = f"({self.value})*" if len(self.value) > 1 else f"{self.value}*"
+        return "(" + string + ")" if self.group else string
 
     def unpack(self):
         pass

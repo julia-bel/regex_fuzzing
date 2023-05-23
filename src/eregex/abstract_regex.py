@@ -5,10 +5,11 @@ from graphviz import Digraph
 
 
 class Regex(ABC):
-    def __init__(self, value: Any):
+    def __init__(self, value: Any, group: bool = False):
         assert value, "empty regular expression"
         self.value = value
         self.name  = ""
+        self.group = group
 
     def __len__(self) -> int:
         return len(self.value)
@@ -27,8 +28,8 @@ class Regex(ABC):
 
 
 class NodeRegex(Regex):
-    def __init__(self, value: Any):
-        super(NodeRegex, self).__init__(value)
+    def __init__(self, value: Any, group: bool = False):
+        super(NodeRegex, self).__init__(value, group)
         self.unpack()
 
     @abstractmethod

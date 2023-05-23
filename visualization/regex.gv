@@ -1,97 +1,35 @@
 digraph {
 	0 [label=ConcatenationRegex]
-	1 [label=StarRegex]
+	1 [label=AlternativeRegex]
 	0 -> 1
-	2 [label=BaseRegex]
+	2 [label=StarRegex]
 	1 -> 2
-	3 [label=a]
+	3 [label=BaseRegex]
 	2 -> 3
-	4 [label=StarRegex]
-	0 -> 4
-	5 [label=ConcatenationRegex]
-	4 -> 5
-	6 [label=BaseRegex]
+	4 [label=a]
+	3 -> 4
+	5 [label=StarRegex]
+	1 -> 5
+	6 [label=ConcatenationRegex]
 	5 -> 6
-	7 [label=b]
+	7 [label=StarRegex]
 	6 -> 7
 	8 [label=BaseRegex]
-	0 -> 8
-	9 [label=""]
+	7 -> 8
+	9 [label=b]
 	8 -> 9
-	0 [label=ConcatenationRegex]
-	1 [label=StarRegex]
-	0 -> 1
-	2 [label=BaseRegex]
-	1 -> 2
-	3 [label=a]
-	2 -> 3
-	4 [label=StarRegex]
-	0 -> 4
-	5 [label=ConcatenationRegex]
-	4 -> 5
-	6 [label=BaseRegex]
-	5 -> 6
-	7 [label=b]
-	6 -> 7
-	8 [label=BaseRegex]
-	0 -> 8
-	9 [label=""]
-	8 -> 9
-	0 [label=ConcatenationRegex]
-	1 [label=StarRegex]
-	0 -> 1
-	2 [label=BaseRegex]
-	1 -> 2
-	3 [label=a]
-	2 -> 3
-	4 [label=StarRegex]
-	0 -> 4
-	5 [label=ConcatenationRegex]
-	4 -> 5
-	6 [label=BaseRegex]
-	5 -> 6
-	7 [label=b]
-	6 -> 7
-	8 [label=BaseRegex]
-	0 -> 8
-	9 [label=""]
-	8 -> 9
-	0 [label=ConcatenationRegex]
-	1 [label=StarRegex]
-	0 -> 1
-	2 [label=BaseRegex]
-	1 -> 2
-	3 [label=a]
-	2 -> 3
-	4 [label=StarRegex]
-	0 -> 4
-	5 [label=ConcatenationRegex]
-	4 -> 5
-	6 [label=BaseRegex]
-	5 -> 6
-	7 [label=b]
-	6 -> 7
-	8 [label=BaseRegex]
-	0 -> 8
-	9 [label=""]
-	8 -> 9
-	0 [label=ConcatenationRegex]
-	1 [label=StarRegex]
-	0 -> 1
-	2 [label=BaseRegex]
-	1 -> 2
-	3 [label=a]
-	2 -> 3
-	4 [label=StarRegex]
-	0 -> 4
-	5 [label=ConcatenationRegex]
-	4 -> 5
-	6 [label=BaseRegex]
-	5 -> 6
-	7 [label=b]
-	6 -> 7
-	8 [label=BaseRegex]
-	0 -> 8
-	9 [label=""]
-	8 -> 9
+	10 [label=BackrefRegex]
+	0 -> 10
+	10 -> 6
+	11 [label=BaseRegex]
+	0 -> 11
+	12 [label=d]
+	11 -> 12
+	13 [label=BaseRegex]
+	0 -> 13
+	14 [label=s]
+	13 -> 14
+	15 [label=BackrefRegex]
+	0 -> 15
+	15 -> 1
 }

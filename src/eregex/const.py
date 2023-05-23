@@ -5,6 +5,6 @@ SPACE = " "
 DASH = "-"
 ALTERNATIVE = "|"
 EPSILON = "ε"
-BACKSLASH = "/"
+BACKSLASH = "\\"
 DIGITS = "[0-9]"
  

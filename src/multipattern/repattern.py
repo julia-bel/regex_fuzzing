@@ -6,26 +6,26 @@ from src.patterns_learning.pattern.abstract_pattern import Variable, Pattern
 
 
 class REVariable(Variable):
-    def __init__(self, alphabet: List[str|Regex], value: Optional[str | List[str]] = None):
+    def __init__(self, regex: Regex, value: Optional[str | List[str]] = None):
         super().__init__(value)
-        self.alphabet = alphabet
+        self.regex = regex
 
-    def is_alphabet_compatible(self, word: str) -> bool:
-        for elem in self.alphabet:
-            if isinstance(elem, str):
-                if elem == word:
-                    return True
-            else:
-                if elem.match(word):
-                    return True
-        return False
+    # def is_dictionary_compatible(self, word: str) -> bool:
+    #     for elem in self.dictionary:
+    #         if isinstance(elem, str):
+    #             if elem == word:
+    #                 return True
+    #         else:
+    #             if elem.match(word):
+    #                 return True
+    #     return False
 
     def substitute(self, value: str | List[str]):
-        assert self.is_alphabet_compatible(value if isinstance(str) else "".join(value))
+        assert self.regex.match(value if isinstance(str) else "".join(value))
         self.value = list(value) if isinstance(value, str) else value
 
 
-class REMultiPattern(Pattern):
+class REPattern(Pattern):
     def __init__(self, value: List[str | REVariable]):
         super().__init__(value)
 
@@ -52,18 +52,7 @@ class REMultiPattern(Pattern):
             l = len(value)
             length += l if l > 0 else 1
         return length
-
-  
-def neighborhood_alphabet(var: REVariable, pattern: REMultiPattern, n: int = 0) -> List[str]:
-    i = -1
-    for i, elem in enumerate(pattern.value):
-        if elem == var:
-            break
-    assert i > -1, "variable is not in pattern"
-    alphabet = []
-    for elem in pattern.value[i - n: i + n + 1]:
-        if isinstance(elem, str):
-            alphabet.append(elem)
-        else:
-            alphabet += elem.alphabet
-    return alphabet
+    
+    def get_regular_str(self) -> str:
+        value = [elem if isinstance(elem, str) else str(elem.regex) for elem in self.value]
+        return "".join(value)

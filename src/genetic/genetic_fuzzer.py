@@ -9,9 +9,11 @@ class GeneticFuzzer:
     
     def __init__(
         self,
-        matcher: RegexMatcher) -> None:
+        matcher: RegexMatcher,
+        dictionary: List[str]) -> None:
         self.generation = []
         self.matcher = matcher
+        self.dictionary = dictionary
         self.mutations = [
             self.insert,
             self.delete,
@@ -24,7 +26,6 @@ class GeneticFuzzer:
         pass
 
     def execute(self, regex: Regex) -> Any:
-        self.dictionary = self._generate_dictionary(regex)
         pass
 
     def next_generation(self) -> Any:

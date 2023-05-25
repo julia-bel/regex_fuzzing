@@ -129,6 +129,13 @@ class GeneticFuzzer:
         result = string[:offset] + core[::-1] + string[offset + chars_num:] 
         return result
     
+    def cyclic_shift(
+        self,
+        string: str,
+        chars_range: List[int] = [1, 3]) -> str:
+        pass
+        return result
+    
     def fitness_function(self) -> float:
         # TODO: relative coefficient
         pass

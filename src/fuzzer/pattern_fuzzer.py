@@ -11,7 +11,7 @@ from src.eregex.regex import (
     StarRegex, AlternativeRegex, ConcatenationRegex)
 
 
-class ERegexFuzzer:
+class PatternFuzzer:
     """Main structured fuzzing algorithm implementation"""  
     def __init__(
         self,
@@ -71,27 +71,29 @@ class ERegexFuzzer:
     def _check_backref_type(self, backref: Regex, regex: Regex) -> int:
         return OUT if self._check_star_outside(backref, regex) else NO
     
-    def _open_regex(self, regex: Regex, rec_limit: int) -> Iterator[str]:
+    def _open_backref(self, regex: Regex) -> Iterator[str]:
+
+        def open_parent(self, parent: Regex) -> Iterator[str]:
+            pass
+        
+        pass
+    
+    def _open_flat_regex(self, regex: Regex) -> Iterator[str]:
         if isinstance(regex, BaseRegex):
             yield str(regex)
         elif isinstance(regex, AlternativeRegex):
             for value in regex.value:
-                for child in self._open_regex(value):
+                for child in self._open_flat_regex(value):
                     yield child
         elif isinstance(regex, ConcatenationRegex):
-            for first_child in self._open_regex(regex.value[0]):
-                for last_child in self._open_regex(ConcatenationRegex(regex.value[1:])):
+            for first_child in self._open_flat_regex(regex.value[0]):
+                for last_child in self._open_flat_regex(ConcatenationRegex(regex.value[1:])):
                     yield first_child + last_child
-        elif isinstance(regex, StarRegex):
-            for limit in range(rec_limit):
-                for child in self._open_regex(regex.value, rec_limit):
-                    yield limit * child 
-            pass
         else: # BackrefRegex
-            for child in self._open_regex(regex.regex_value):
+            for child in self._open_backref(regex):
                 yield child
-
-    def _process_classic_part(
+    
+    def process(
         self,
         regex: Regex,
         capture_groups: Dict[str, Regex],
@@ -125,14 +127,7 @@ class ERegexFuzzer:
                 else:
                     return 0
             return self.analyzer(processed + str(regex))
-        
-    def _procces_memory_part(
-        self,
-        regex: Regex,
-        capture_groups: Dict[str, Regex],
-        processed: str = "",
-        regexes: List[Regex] = None) -> int:
-        
+        # BackrefRegex
         backref_type = self._check_backref_type(regex, self.regex)
         group_type = self._check_group_type(regex.group, self.regex)
         if group_type == OUT:
@@ -157,12 +152,3 @@ class ERegexFuzzer:
                 # no attack
         # TODO: replace current string value
         return
-    
-    def process(
-        self,
-        regex: Regex,
-        capture_groups: Dict[str, Regex],
-        processed: str = "",
-        regexes: List[Regex] = None) -> int:
-        pass
-        

@@ -1,0 +1,6 @@
+[submodule "src/patterns_learning"]
+	path = src/patterns_learning
+	url = https://github.com/julia-bel/machine_learning_of_patterns
+[submodule "src/regex_matcher"]
+	path = src/regex_matcher
+	url = https://github.com/julia-bel/regex_matcher

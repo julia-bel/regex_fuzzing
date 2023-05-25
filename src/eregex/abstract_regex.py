@@ -1,5 +1,8 @@
 from __future__ import annotations
 from typing import Any, Optional, Iterator
+
+import re
+
 from abc import ABC, abstractmethod
 from graphviz import Digraph
 
@@ -10,6 +13,9 @@ class Regex(ABC):
         self.value = value
         self.name  = ""
         self.group = group
+
+    def match(self, word: str) -> bool:
+        return re.match("^" + str(self) + "$", word)
 
     def __len__(self) -> int:
         return len(self.value)

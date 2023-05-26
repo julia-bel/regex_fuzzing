@@ -4,3 +4,7 @@
 [submodule "src/regex_matcher"]
 	path = src/regex_matcher
 	url = https://github.com/julia-bel/regex_matcher
+[submodule "src/static_analyzer"]
+	path = src/static_analyzer
+	url = https://github.com/bmstu-iu9/Chipo-Kleene
+	branch = ambiguity

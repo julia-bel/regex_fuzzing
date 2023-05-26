@@ -1,18 +1,13 @@
 from typing import Tuple, Any, List
 from random import randint, choice
 
-from src.eregex.abstract_regex import Regex
-from src.wrappers.regex_matcher import RegexMatcher
-
 
 class GeneticFuzzer:
     
     def __init__(
         self,
-        matcher: RegexMatcher,
         dictionary: List[str]) -> None:
-        self.generation = []
-        self.matcher = matcher
+        self.generation = dictionary
         self.dictionary = dictionary
         self.mutations = [
             self.insert,
@@ -21,11 +16,7 @@ class GeneticFuzzer:
             self.reverse
         ]
 
-    def _generate_dictionary(self, regex: Regex) -> None:
-        # TODO: to generate dictionary based on regex structure
-        pass
-
-    def execute(self, regex: Regex) -> Any:
+    def evolve(self, num_generations: int = 10):
         pass
 
     def next_generation(self) -> Any:
@@ -127,20 +118,23 @@ class GeneticFuzzer:
         chars_num = min(len(string), randint(*chars_range))
         offset = randint(0, len(string) - chars_num)
         core = string[offset:offset + chars_num]
-        result = string[:offset] + core[::-1] + string[offset + chars_num:] 
+        result = string[:offset] + core[::-1] + string[offset + chars_num:]
         return result
     
     def cyclic_shift(
         self,
         string: str,
         chars_range: List[int] = [1, 3]) -> str:
-        pass
+        """Cyclic shift of random substring
+
+        Args:
+            string (str): input
+            chars_range (List[int], optional): defines amount of chars to shift. Defaults to [1, 3].
+        Returns:
+            str: result
+        """        
+        chars_num = min(len(string), randint(*chars_range))
+        offset = randint(0, len(string) - chars_num)
+        core = string[offset:offset + chars_num]
+        result = string[:offset] + core[-1] + core[:-1] + string[offset + chars_num:]
         return result
-    
-    def fitness_function(self) -> float:
-        # TODO: relative coefficient
-        pass
-    
-    def test(self) -> Any:
-        # TODO: match population
-        pass

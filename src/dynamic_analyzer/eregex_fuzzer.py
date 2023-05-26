@@ -1,7 +1,7 @@
 from typing import Any, List, Dict, Tuple, Iterator
 
 
-from src.fuzzer.const import *
+from src.dynamic_analyzer.const import *
 from src.genetic.genetic_fuzzer import GeneticFuzzer
 from src.wrappers.static_analyzer import StaticAnalyzer
 from src.eregex.parser import ERegexParser

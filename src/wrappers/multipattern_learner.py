@@ -1,14 +1,18 @@
-from typing import List
+from typing import List, Optional
+
+from src.patterns_learning.main import learn
+from src.patterns_learning.pattern.pattern import NEPattern
+from src.multipattern.repattern import REPattern
 
 
-class MultipatternLearner:
+class REPatternLearner:
     """Multipattern Learner Wrapper"""
 
     def __init__(self):
         pass
 
-    def learn(self, populations: List[List[str]]) -> RegPattern:
+    def learn_repattern(self, populations: List[List[str]]) -> REPattern:
         pass
 
-    def _learn_pattern(self, corpus: List[str]) -> NEPattern:
-        pass 
+    def learn_pattern(self, corpus: List[str]) -> Optional[NEPattern]:
+        return learn(corpus, optimize=True)

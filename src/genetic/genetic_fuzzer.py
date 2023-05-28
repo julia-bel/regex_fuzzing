@@ -1,14 +1,14 @@
-from typing import Tuple, Any, List
+import numpy as np
+
+from typing import Tuple, Any, List, Callable
 from random import randint, choice
 
 
 class GeneticFuzzer:
     
-    def __init__(
-        self,
-        dictionary: List[str]) -> None:
-        self.generation = dictionary
-        self.dictionary = dictionary
+    def __init__(self) -> None:
+        self.dictionary = []
+        self.generation = []
         self.mutations = [
             self.insert,
             self.delete,
@@ -16,11 +16,28 @@ class GeneticFuzzer:
             self.reverse
         ]
 
-    def evolve(self, num_generations: int = 10):
-        pass
+    def pump(self, word: str, score_func: Callable) -> List[int]:
+        length = len(word)
+        max_score = -1
+        bounds = [0, 0]
+        for i in range(length):
+            for j in range(i, length):
+                attack = word[:i] + word[i:j] * 2 + word[j:]
+                score = score_func(attack)
+                if score > max_score:
+                    max_score = score
+                    bounds = [i, j]
+        return bounds
 
-    def next_generation(self) -> Any:
-        # TODO: genetic strategy based on results of fitness function
+    def evolve(self, parent: str, fitness_func: Callable, num_epochs: int = 10) -> Tuple[str, Any]:
+        self.dictionary = list(parent)
+        self.generation = self.dictionary
+        for _ in num_epochs:
+            self.next_generation()
+        best = np.argmax([fitness_func(elem) for elem in self.generation])
+        return best, self.pump(best, fitness_func)
+
+    def next_generation(self, size: int = 10) -> Any:
         for parent in self.generation:
             pass
         

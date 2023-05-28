@@ -26,6 +26,9 @@ class BaseRegex(Regex):
         graph.edge(self.name, value)
         return graph
     
+    def reverse(self) -> BaseRegex:
+        return BaseRegex(self.value[::-1])
+    
 
 class BackrefRegex(Regex):
     """Stores reference to regex group"""
@@ -52,6 +55,9 @@ class BackrefRegex(Regex):
             graph.edge(parent, self.name)
         graph.edge(self.name, self.regex_value.name)
         return graph
+    
+    def reverse(self):
+        pass
 
 
 class ConcatenationRegex(NodeRegex):
@@ -72,6 +78,9 @@ class ConcatenationRegex(NodeRegex):
 
     def flat_len(self) -> int:
         return len(self.value)
+    
+    def sub(self, start: int = 0, end: Optional[int] = None) -> ConcatenationRegex:
+        return ConcatenationRegex(self.value[start:end])
 
     def unpack(self):
         while self.flat_len() == 1 and isinstance(self.value[0], ConcatenationRegex):
@@ -91,6 +100,9 @@ class ConcatenationRegex(NodeRegex):
         for v in self.value:
             v.plot(self.name, graph, name_generator)
         return graph
+    
+    def reverse(self) -> ConcatenationRegex:
+        return ConcatenationRegex([elem.reverse() for elem in self.value[::-1]])
 
 
 class AlternativeRegex(NodeRegex):
@@ -118,6 +130,9 @@ class AlternativeRegex(NodeRegex):
         for v in self.value:
             v.plot(self.name, graph, name_generator)
         return graph
+    
+    def reverse(self) -> AlternativeRegex:
+        return AlternativeRegex([elem.reverse() for elem in self.value])
 
 
 class StarRegex(NodeRegex):
@@ -147,3 +162,6 @@ class StarRegex(NodeRegex):
             graph.edge(parent, self.name)
         self.value.plot(self.name, graph, name_generator)
         return graph
+
+    def reverse(self) -> StarRegex:
+        return StarRegex(self.value.reverse())

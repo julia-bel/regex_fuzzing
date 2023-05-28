@@ -1,7 +1,7 @@
 import re
 
 from subprocess import PIPE, Popen, TimeoutExpired
-from typing import List, Optional, Dict, Iterator
+from typing import List, Optional, Dict, Iterator, Tuple
 
 
 JS_MATCHER_PATH = "src/regex_matcher/src/javascript/query-node.js"
@@ -36,7 +36,7 @@ class RegexMatcher:
         attack: List[List[str]|str],
         steps: Dict[str, List[int]],
         regex: str,
-        timeout: float = 0.5) -> List[float]:
+        timeout: float = 0.5) -> Tuple[List[float], List[int]]:
         # attack: List[List[str]|str], (e.g. [["a", "1"], "b", ["a", "1"]])
         # steps: Dict[str, List[int]], (e.g. {"1": [start, end, step]}, [start, end))
         
@@ -55,7 +55,9 @@ class RegexMatcher:
                 yield {k: next(v) for k, v in iterable_steps.items()}
 
         times = []
+        lengths = []
         for step in step_iterator(steps):
             word = "".join([a if isinstance(a, str) else a[0] * step[a[1]] for a in attack])
             times.append(self.match_word(word, regex, timeout))
-        return times
+            lengths.append(len(word))
+        return times, lengths

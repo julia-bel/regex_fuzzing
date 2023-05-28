@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Optional, Dict
 
+from src.eregex.parser import ERegexParser
 from src.eregex.abstract_regex import Regex
 from src.patterns_learning.pattern.abstract_pattern import Variable, Pattern
 
@@ -63,3 +64,19 @@ class REPattern(Pattern):
     def get_regular_str(self) -> str:
         value = [elem if isinstance(elem, str) else str(elem.regex) for elem in self.value]
         return "".join(value)
+    
+    def get_regex(self) -> str:
+        return ERegexParser(self.get_regular_str()).parse()
+    
+    def get_ext_regex(self) -> str:
+        result = ""
+        vars = {}
+        for i, elem in enumerate(self.value):
+            if isinstance(elem, str):
+                result += elem
+            elif elem in vars:
+                result += f"\\{vars[elem]}"
+            else:
+                vars[elem] = i
+                result += str(elem.regex)
+        return result

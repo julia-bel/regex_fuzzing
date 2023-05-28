@@ -1,6 +1,6 @@
 from typing import Set
 
-from src.const import EPSILONILON
+from src.const import EPSILON
 from src.eregex.regex import (
     Regex, BaseRegex, StarRegex, AlternativeRegex, ConcatenationRegex)
 
@@ -26,4 +26,11 @@ def get_last(regex: Regex) -> Set[str]:
         last_set.add(EPSILON)
         return last_set
     return get_last(regex.regex_value)
-            
+
+
+def get_divisors(number: int) -> Set[int]:
+    result = {1, number}
+    for divisor in range(2, number // 2  + 1):
+        if number % divisor == 0:
+            result.add(divisor)
+    return result

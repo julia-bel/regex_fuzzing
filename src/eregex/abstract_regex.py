@@ -25,6 +25,10 @@ class Regex(ABC):
         pass
 
     @abstractmethod
+    def reverse(self) -> Regex:
+        pass
+
+    @abstractmethod
     def plot(
         self,
         parent: Optional[str] = None,

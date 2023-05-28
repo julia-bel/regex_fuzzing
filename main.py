@@ -15,3 +15,5 @@ if __name__ == "__main__":
     
     matcher = RegexMatcher()
     print(matcher.match_group([["a", "1"], "b"], {"1": [0, 30, 5]}, "a*a*"))
+
+    

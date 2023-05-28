@@ -2,17 +2,30 @@ from typing import List, Set, Dict, Tuple, Optional, Iterator
 import random
 import re
 
+from src.const import *
 from src.eregex.parser import ERegexParser
 from src.dynamic_analyzer.utils import get_last
 from src.dynamic_analyzer.abstract_fuzzer import Fuzzer
 from src.multipattern.repattern import REPattern, REVariable
 from src.multipattern.remultipattern import REMultipattern
-from src.const import *
 from src.eregex.regex import Regex, BaseRegex, AlternativeRegex, ConcatenationRegex
+from src.dynamic_analyzer.ambiguity_analyzer import AmbiguityAnalyzer
+from src.wrappers.regex_matcher import RegexMatcher
+from src.genetic.genetic_fuzzer import GeneticFuzzer
 
 
 class REPatternFuzzer(Fuzzer):
     """Main structured fuzzing algorithm implementation"""
+
+    def __init__(
+        self,
+        fuzzer: GeneticFuzzer,
+        matcher: RegexMatcher,
+        ambiguity_analyzer: AmbiguityAnalyzer):
+        self.fuzzer = fuzzer
+        self.matcher = matcher
+        self.ambiguity_analyzer = ambiguity_analyzer
+        # self.super().__init__(fuzzer, matcher, ambiguity_analyzer)
 
     def _open_regex(self, regex: Regex, rec_limit: int = 1) -> Iterator[str]:
         if isinstance(regex, BaseRegex):
@@ -44,12 +57,16 @@ class REPatternFuzzer(Fuzzer):
                 sub.update(s)
         elif isinstance(regex, ConcatenationRegex):
             e, s = self._get_regex_first_k(regex.value[0], k)
-            sub.update(e, s)
-            for part in range(k):
-                prefix, _ = self._get_regex_first_k(regex.value[0], part)
-                suffix_e, suffix_s = self._get_regex_first_k(regex.sub(1), k - part)
-                exact.update(set(p + s for p in prefix for s in suffix_e))
-                sub.update(set(p + s for p in prefix for s in suffix_s))
+            if len(regex.value) == 1:
+                exact.update(e)
+                sub.update(s)
+            else:
+                sub.update(e, s)
+                for part in range(k + 1):
+                    prefix, _ = self._get_regex_first_k(regex.value[0], part)
+                    suffix_e, suffix_s = self._get_regex_first_k(regex.sub(1), k - part)
+                    exact.update(set(p + s for p in prefix for s in suffix_e))
+                    sub.update(set(p + s for p in prefix for s in suffix_s))
         else: # if isinstance(regex, StarRegex):
             if k == 0:
                 exact.add("")
@@ -58,13 +75,14 @@ class REPatternFuzzer(Fuzzer):
             sub.update(s)
             for part in range(k):
                 e, s = self._get_regex_first_k(regex.value, part)
-                for i in range(k // part):
-                    mod = k % i
-                    if mod == 0:
-                        exact.update(set(item * i for item in e))
-                    else:
-                        ex, s = self._get_regex_first_k(regex.value, mod)
-                        exact.update(set(prefix * i + suffix for prefix in e for suffix in ex.union(s)))
+                if part != 0 and len(e) > 0:
+                    for i in range(1, k // part):
+                        mod = k - i * part
+                        if mod == 0:
+                            exact.update(set(item * i for item in e))
+                        else:
+                            ex, s = self._get_regex_first_k(regex.value, mod)
+                            exact.update(set(prefix * i + suffix for prefix in e for suffix in ex.union(s)))
         # no BackrefRegex
         return exact, sub
     
@@ -99,8 +117,12 @@ class REPatternFuzzer(Fuzzer):
             else:
                 result = self._get_regex_first_k(pattern.sub(i).get_regex(), k)
                 return result[0].union(result[1])
+
         prefix = self._get_regex_last_k(pattern.sub(end = i).get_regex(), n)
         suffix = self._get_regex_first_k(pattern.sub(start = i).get_regex(), k - n)
+
+        prefix = prefix[0].union(prefix[1])
+        suffix = suffix[0].union(suffix[1])
         neighborhood = set(p + s for p in prefix for s in suffix)
         return neighborhood
     
@@ -112,15 +134,17 @@ class REPatternFuzzer(Fuzzer):
         max_radius: int = 10,
         top_k: int = 5) -> Optional[List[str]]:
         intersections = set()
-        for k in range(max_radius):
+        for k in range(1, max_radius):
             x1 = self.get_neighborhood(start, pattern, k)
             x2 = self.get_neighborhood(end, pattern, k)
+            if len(x1) == 0 or len(x2) == 0:
+                break
             cap = x1.intersection(x2)
             if len(cap) == 0:
                 return
             if end - start > 1:
-                for n in range(k // 2):
-                    trans = self.get_neighborhood(start, pattern, k, n)
+                for n in range(1, k // 2):
+                    trans = self.get_neighborhood(start + 1, pattern, k, n)
                     cap = cap.intersection(trans)
                     if len(cap) == 0:
                         return
@@ -170,10 +194,10 @@ class REPatternFuzzer(Fuzzer):
             pattern = []
             while i < len(attack_format):
                 if attack_format[i] != "{":
-                    pattern.append(i)
+                    pattern.append(attack_format[i])
                 else:
                     pattern.append(regex_subs[int(attack_format[i+1])])
-                    i += 1
+                    i += 2
                 i += 1
             return REPattern(pattern)
         

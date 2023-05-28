@@ -1,1 +1,1 @@
-X = Ambiguity.Thompson {(a*)*}
+X = Ambiguity.Thompson {a(c*)cccc}

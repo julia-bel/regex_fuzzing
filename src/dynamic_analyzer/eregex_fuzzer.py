@@ -1,14 +1,14 @@
 from typing import Any, List, Dict, Tuple, Iterator
 
-
+from src.const import *
 from src.dynamic_analyzer.const import *
 from src.genetic.genetic_fuzzer import GeneticFuzzer
 from src.wrappers.static_analyzer import StaticAnalyzer
+from src.dynamic_analyzer.ambiguity_analyzer import AmbiguityAnalyzer
+from src.wrappers.regex_matcher import RegexMatcher
 from src.eregex.parser import ERegexParser
-from src.wrappers.multipattern_learner import MultipatternLearner
 from src.eregex.regex import (
-    Regex, BaseRegex, BackrefRegex,
-    StarRegex, AlternativeRegex, ConcatenationRegex)
+    Regex, BaseRegex, StarRegex, AlternativeRegex, ConcatenationRegex, BackrefRegex)
 
 
 class ERegexFuzzer:
@@ -16,11 +16,11 @@ class ERegexFuzzer:
     def __init__(
         self,
         fuzzer: GeneticFuzzer,
+        matcher: RegexMatcher,
         analyzer: StaticAnalyzer,
-        learner: MultipatternLearner):
-        self.fuzzer = fuzzer
+        ambiguity_analyzer: AmbiguityAnalyzer):
+        self.super().__init__(fuzzer, matcher, ambiguity_analyzer)
         self.analyzer = analyzer
-        self.learner = learner
         self.regex = None
 
     def run(self, regex_string: str) -> Any:       
@@ -87,54 +87,106 @@ class ERegexFuzzer:
                 for child in self._open_regex(regex.value, rec_limit):
                     yield limit * child 
             pass
-        else: # BackrefRegex
+        else: # BackrefRegex - ???
             for child in self._open_regex(regex.regex_value):
                 yield child
 
-    def _process_classic_part(
+    # def _process_classic_part(
+    #     self,
+    #     regex: Regex,
+    #     capture_groups: Dict[str, Regex],
+    #     processed: str = "",
+    #     regexes: List[Regex] = None) -> int:
+    #     if regexes is None:
+    #         regexes = []
+    #     if isinstance(regex, BaseRegex):
+    #         return 1
+    #     if isinstance(regex, StarRegex):
+    #         if self.process(regex.value, capture_groups) or self.analyzer(str(regex)):
+    #             return self.analyzer(processed + str(regex))
+    #         return 0
+    #     if isinstance(regex, AlternativeRegex):
+    #         curr_processed = ""
+    #         for value in regex.value:
+    #             if self.process(value, capture_groups, curr_processed):
+    #                 curr_processed += "|" + str(value)
+    #                 if not self.analyzer(curr_processed):
+    #                     return 0
+    #             else:
+    #                 return 0
+    #         return self.analyzer(processed + str(regex))
+    #     if isinstance(regex, ConcatenationRegex):
+    #         curr_processed = ""
+    #         for value in regex.value:
+    #             if self.process(value, capture_groups, curr_processed):
+    #                 curr_processed += str(value)
+    #                 if not self.analyzer(curr_processed):
+    #                     return 0
+    #             else:
+    #                 return 0
+    #         return self.analyzer(processed + str(regex))
+
+    def _check_type_inside(self, source: Regex, type: Any) -> bool:
+        if isinstance(source, type):
+            return True
+        if isinstance(source, ConcatenationRegex) or isinstance(source, AlternativeRegex):
+            for value in source.value:
+                if self._check_type_inside(value, type):
+                    return True
+        return False
+
+    def procces_memory_part(self, regex: Regex, backrefs: List[Regex]) -> Any:
+        for mem in backrefs:
+            # status = self.process(mem)
+            status = self._procces_basic_memory(mem)
+            if status > NO_AMBIGUOUS:
+                return status
+
+        # if isinstance(regex, BaseRegex):
+        #     return NO_AMBIGUOUS
+        # if isinstance(regex, StarRegex):
+        #     status = self.process(regex.value, capture_groups)
+        #     if status == NO_AMBIGUOUS:
+        #         return self.analyzer(processed + str(regex))
+        #     return status
+        # if isinstance(regex, AlternativeRegex):
+        #     # curr_processed = ""
+        #     # for value in regex.value:
+        #     #     status = self.process(value, capture_groups)
+        #     #     if status == NO_AMBIGUOUS:
+        #     #         curr_processed += "|" + str(value)
+        #     #         if not self.analyzer(curr_processed):
+        #     #             return 0
+        #     #     else:
+        #     #         return 0
+        #     return self.analyzer(processed + str(regex))
+        # if isinstance(regex, ConcatenationRegex):
+        #     curr_processed = ""
+        #     for value in regex.value:
+        #         if self.process(value, capture_groups, curr_processed):
+        #             curr_processed += str(value)
+        #             if not self.analyzer(curr_processed):
+        #                 return 0
+        #         else:
+        #             return 0
+        #     return self.analyzer(processed + str(regex))
+
+    def kleene_open(self, regex: StarRegex) -> str:
+        return f"(|{str(regex)}{str(regex.value)})"
+    
+    def substitution(self, regex: BackrefRegex) -> Iterator[str]:
+        return self._open_regex(regex.regex_value)
+        
+    def _procces_basic_memory(
         self,
         regex: Regex,
+        back: Regex,
         capture_groups: Dict[str, Regex],
         processed: str = "",
         regexes: List[Regex] = None) -> int:
-        if regexes is None:
-            regexes = []
-        if isinstance(regex, BaseRegex):
-            return 1
-        if isinstance(regex, StarRegex):
-            if self.process(regex.value, capture_groups) or self.analyzer(str(regex)):
-                return self.analyzer(processed + str(regex))
-            return 0
-        if isinstance(regex, AlternativeRegex):
-            curr_processed = ""
-            for value in regex.value:
-                if self.process(value, capture_groups, curr_processed):
-                    curr_processed += "|" + str(value)
-                    if not self.analyzer(curr_processed):
-                        return 0
-                else:
-                    return 0
-            return self.analyzer(processed + str(regex))
-        if isinstance(regex, ConcatenationRegex):
-            curr_processed = ""
-            for value in regex.value:
-                if self.process(value, capture_groups, curr_processed):
-                    curr_processed += str(value)
-                    if not self.analyzer(curr_processed):
-                        return 0
-                else:
-                    return 0
-            return self.analyzer(processed + str(regex))
         
-    def _procces_memory_part(
-        self,
-        regex: Regex,
-        capture_groups: Dict[str, Regex],
-        processed: str = "",
-        regexes: List[Regex] = None) -> int:
-        
-        backref_type = self._check_backref_type(regex, self.regex)
-        group_type = self._check_group_type(regex.group, self.regex)
+        backref_type = self._check_backref_type(back, regex)
+        group_type = self._check_group_type(back.group, regex)
         if group_type == OUT:
             if backref_type == OUT:
                 # substitution vs 1 + a*a
@@ -158,11 +210,86 @@ class ERegexFuzzer:
         # TODO: replace current string value
         return
     
+    def pump(self):
+        pass
+    
+    def run(self, regex: Regex, capture_groups: Dict[str, Regex]) -> Any:
+        self.regex = regex
+        return self.process(regex)
+    
+    def process(
+        self,
+        regex: Regex,
+        capture_groups: Dict[str, Regex],
+        regexes: List[Regex] = None) -> int:
+        if isinstance(regex, StarRegex):
+            status = self.run(regex.value, capture_groups)
+            if status > NO_AMBIGUOUS:
+                return status
+            if self._check_type_inside(regex.value, BackrefRegex):
+                return self.pump(regex)
+            else:
+                return self.analyzer.analyze(str(regex))
+        if isinstance(regex, AlternativeRegex):
+            if not self._check_type_inside(regex.value, BackrefRegex):
+                return self.analyzer.analyze(str(regex))
+            else:
+                for value in regex.value:
+                    status = self.run(value, capture_groups)
+                    if status > NO_AMBIGUOUS:
+                        return status
+            return NO_AMBIGUOUS
+        if isinstance(regex, ConcatenationRegex):
+            if not self._check_type_inside(regex.value, BackrefRegex):
+                return self.analyzer.analyze(str(regex))
+            else:
+                before = ""
+                backrefs = []
+                for value in regex.value:
+                    if not self._check_type_inside(value, BackrefRegex):
+                        status = self.analyzer.analyze(before + str(value))
+                        if status > NO_AMBIGUOUS:
+                            return status
+                        before += str(value)
+                    else:
+                        backrefs.append(value)
+                return self._procces_memory_part(backrefs)
+        return NO_AMBIGUOUS
+    
     def process(
         self,
         regex: Regex,
         capture_groups: Dict[str, Regex],
         processed: str = "",
         regexes: List[Regex] = None) -> int:
-        pass
-        
+        if regexes is None:
+            regexes = []
+        if isinstance(regex, BaseRegex):
+            return NO_AMBIGUOUS
+        if isinstance(regex, StarRegex):
+            status = self.process(regex.value, capture_groups)
+            if status == NO_AMBIGUOUS:
+                return self.analyzer(processed + str(regex))
+            return status
+        if isinstance(regex, AlternativeRegex):
+            # curr_processed = ""
+            # for value in regex.value:
+            #     status = self.process(value, capture_groups)
+            #     if status == NO_AMBIGUOUS:
+            #         curr_processed += "|" + str(value)
+            #         if not self.analyzer(curr_processed):
+            #             return 0
+            #     else:
+            #         return 0
+            return self.analyzer(processed + str(regex))
+        if isinstance(regex, ConcatenationRegex):
+            curr_processed = ""
+            for value in regex.value:
+                if self.process(value, capture_groups, curr_processed):
+                    curr_processed += str(value)
+                    if not self.analyzer(curr_processed):
+                        return 0
+                else:
+                    return 0
+            return self.analyzer(processed + str(regex))
+        else:

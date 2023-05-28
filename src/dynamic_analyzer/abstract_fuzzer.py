@@ -6,7 +6,7 @@ from src.dynamic_analyzer.const import *
 from src.dynamic_analyzer.ambiguity_analyzer import AmbiguityAnalyzer
 from src.wrappers.regex_matcher import RegexMatcher
 from src.genetic.genetic_fuzzer import GeneticFuzzer
-from src.wrappers.multipattern_learner import MultipatternLearner
+from src.wrappers.multipattern_learner import REPatternLearner
 
 
 class Fuzzer(ABC):
@@ -15,13 +15,12 @@ class Fuzzer(ABC):
         self,
         fuzzer: GeneticFuzzer,
         matcher: RegexMatcher,
-        ambiguity_analyzer: AmbiguityAnalyzer,
-        learner: MultipatternLearner):
+        ambiguity_analyzer: AmbiguityAnalyzer):
         self.fuzzer = fuzzer
         self.matcher = matcher
         self.ambiguity_analyzer = ambiguity_analyzer
-        self.learner = learner
+        # self.learner = learner
 
     @abstractmethod
-    def run(self, input: Any, n_neighbors: int = 3, first: bool = False) -> Any:
+    def run(self) -> Any:
         pass

@@ -33,11 +33,15 @@ class REPattern(Pattern):
                 else:
                     vars[value] = 0
         return vars
+    
+    def __str__(self) -> str:
+        string, vars = self.shape(return_vars=True)
+        return string + ", " + ", ".join([f"{v} = {str(k.regex)}" for k, v in vars])
 
     def sub(self, start: int = 0, end: Optional[int] = None) -> REPattern:
         return REPattern(self.value[start:end])
 
-    def shape(self, var_id: str = "x") -> List[str]:
+    def shape(self, var_id: str = "x", return_vars: bool = False) -> List[str]:
         result = []
         vars = {}
         i = 1
@@ -52,6 +56,8 @@ class REPattern(Pattern):
                     result.append(prev_i)
             else:
                 result.append(value)
+        if return_vars:
+            result, vars
         return result
 
     def slice_len(self, start: int = 0) -> int:

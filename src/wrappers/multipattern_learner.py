@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Any
 
 # from src.patterns_learning.main import learn
 # from src.patterns_learning.pattern.pattern import NEPattern

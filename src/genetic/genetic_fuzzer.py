@@ -1,10 +1,9 @@
+from typing import Tuple, List, Callable, Optional
+from random import randint, choice, sample, choices
 import numpy as np
 
-from typing import Tuple, Any, List, Callable, Optional
-from random import randint, choice, sample, choices
 
-
-def softmax(x: List[float]):
+def softmax(x: List[float]) -> np.ndarray:
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=0)
 
@@ -12,7 +11,7 @@ def softmax(x: List[float]):
 class GeneticFuzzer:
     """Genetic fuzzing implementation"""
 
-    def __init__(self, weights: Optional[List[float]]):
+    def __init__(self, weights: Optional[List[float]] = None):
         self.vocab = []
         self.generation = []
         self.mutations = [
@@ -45,18 +44,18 @@ class GeneticFuzzer:
         return bounds
     
     # TODO: evolution
-    def evolve(
-        self,
-        parent: str,
-        fitness_func: Callable,
-        num_epochs: int = 10) -> Tuple[str, Any]:
-        self.vocab = list(parent)
-        self.generation = self.vocab
-        for _ in num_epochs:
-            pass
-            # self.next_generation()
-        best = np.argmax([fitness_func(elem) for elem in self.generation])
-        return best, self.pump(best, fitness_func)
+    # def evolve(
+    #     self,
+    #     parent: str,
+    #     fitness_func: Callable,
+    #     num_epochs: int = 10) -> Tuple[str, Any]:
+    #     self.vocab = list(parent)
+    #     self.generation = self.vocab
+    #     for _ in num_epochs:
+    #         pass
+    #         # self.next_generation()
+    #     best = np.argmax([fitness_func(elem) for elem in self.generation])
+    #     return best, self.pump(best, fitness_func)
     
     def cast(
         self,

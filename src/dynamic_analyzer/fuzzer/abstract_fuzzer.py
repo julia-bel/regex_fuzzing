@@ -1,8 +1,7 @@
 from __future__ import annotations
-from typing import Dict, Optional, Tuple
+from typing import Dict
 from abc import ABC, abstractmethod
 
-from src.multipattern.repattern import REPattern
 from src.multipattern.remultipattern import REMultipattern
 from src.dynamic_analyzer.ambiguity_analyzer import AmbiguityAnalyzer
 from src.wrappers.static_analyzer import StaticAnalyzer
@@ -31,5 +30,5 @@ class Fuzzer(ABC):
         pass
 
     @abstractmethod
-    def pump(self) -> Optional[Tuple[int, REPattern]]:
+    def pump(self):
         pass

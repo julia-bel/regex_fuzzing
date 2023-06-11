@@ -170,3 +170,23 @@ class StarRegex(NodeRegex):
 
     def reverse(self) -> StarRegex:
         return StarRegex(self.value.reverse())
+    
+
+# TODO: make better
+def ext_to_classic(regex: Regex) -> str:
+    if isinstance(regex, BaseRegex):
+        return str(regex)
+    if isinstance(regex, ConcatenationRegex):
+        result = ""
+        for value in regex.value:
+            result += ext_to_classic(value)
+        return result
+    if isinstance(regex, AlternativeRegex):
+        result = ""
+        for value in regex.value:
+            result += "|" + ext_to_classic(value)
+        return f"({result})"
+    if isinstance(regex, StarRegex):
+        return f"({ext_to_classic(regex.value)})*"
+    # if isinstance(regex, BackrefRegex):
+    return ext_to_classic(regex.regex_value)

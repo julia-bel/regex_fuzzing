@@ -2,7 +2,7 @@ from subprocess import PIPE, Popen, TimeoutExpired
 from typing import Optional
 import re
 
-from src.const import *
+from src.const import (EXP_AMBIGUOUS, NO_AMBIGUOUS, POLY_AMBIGUOUS)
 
 
 INTERPRETER_PATH = "src/static_analyzer/build/apps/InterpreterApp/InterpreterApp"

@@ -1,18 +1,18 @@
 from typing import List, Set, Dict, Tuple, Optional, Iterable
-import random
 
-from src.const import *
+from src.const import (EXP_AMBIGUOUS, NO_AMBIGUOUS)
 from src.dynamic_analyzer.utils import (
-    get_digit_prefix, get_regex_first_k,
-    get_regex_last_k, check_intersection, 
-    open_regex, trim_first, trim_last)
+    trim_last, trim_first, get_digit_prefix,
+    make_attack_pattern, get_attack_postfix,
+    check_intersection)
+from src.dynamic_analyzer.neighborhood import (
+    get_regex_first_k, get_regex_last_k, open_regex,
+    get_n_neighborhood, get_zero_neighborhood)
 from src.eregex.parser import ERegexParser
-from src.dynamic_analyzer.utils import get_last
-from src.dynamic_analyzer.abstract_fuzzer import Fuzzer
+from src.dynamic_analyzer.fuzzer.abstract_fuzzer import Fuzzer
 from src.multipattern.repattern import REPattern, REVariable
 from src.multipattern.remultipattern import REMultipattern
-from src.eregex.regex import (
-    Regex, BaseRegex, AlternativeRegex, ConcatenationRegex)
+from src.eregex.regex import Regex, ConcatenationRegex
 
 
 class REPatternFuzzer(Fuzzer):
@@ -40,50 +40,25 @@ class REPatternFuzzer(Fuzzer):
         """Getting of left n-k-neighborhood
 
         Args:
-            index (int): element index in pattern.
-            pattern (REPattern): pattern.
+            index (int): element index in the pattern.
+            pattern (REPattern): context.
             k (int): string (neighborhood) length.
             n (int, optional): length of previous suffix == length current prefix. Defaults to 0.
 
         Returns:
             List[str]: n-k-neighborhood.
         """
-        def get_n_neighborhood(start_regex: Regex, end_regex: Regex, n: int = n):
-            prefix = get_regex_last_k(start_regex, n)
-            suffix = get_regex_first_k(end_regex, k - n)
-            prefix = prefix[0].union(prefix[1])
-            suffix = suffix[0].union(suffix[1])
-            neighborhood = set(p + s for p in prefix for s in suffix)
-            return neighborhood
-        
-        def get_zero_neighborhood(regex: Regex):
-            neighborhood = set()
-            if isinstance(regex, BaseRegex):
-                if len(regex) == k:
-                    neighborhood.update(regex.value)
-            elif isinstance(regex, AlternativeRegex):
-                for value in regex.value:
-                    neighborhood.update(get_zero_neighborhood(value))
-            elif isinstance(regex, ConcatenationRegex):
-                for i in range(len(regex.value)):
-                    e, s = get_regex_first_k(regex.sub(start=i), k)
-                    neighborhood.update(e, s)
-            else: # if isinstance(regex, StarRegex):
-                for n in range(k + 1):
-                    neighborhood.update(get_n_neighborhood(regex, regex, n))
-            return neighborhood
-
         if n == 0:
             elem = pattern.value[index]
             if isinstance(elem, REVariable):
-                return get_zero_neighborhood(elem.regex)
+                return get_zero_neighborhood(elem.regex, k)
             else:
                 result = get_regex_first_k(pattern.sub(index).get_regex(), k)
                 return result[0].union(result[1])
             
         return get_n_neighborhood(
             pattern.sub(end = index).get_regex(),
-            pattern.sub(start = index).get_regex())
+            pattern.sub(start = index).get_regex(), n, k)
     
     def _pump_neighborhood(
         self,
@@ -92,7 +67,7 @@ class REPatternFuzzer(Fuzzer):
         end: int,
         radius_range: Iterable[int],
         top_k: int = 5) -> Optional[List[str]]:
-        if self.static_analyzer(pattern.get_regular_str()) == NO_AMBIGUOUS:
+        if self.static_analyzer(pattern.sub(start, end + 1).get_regular_str()) == NO_AMBIGUOUS:
             return
         intersections = set()
         for k in radius_range:
@@ -104,7 +79,7 @@ class REPatternFuzzer(Fuzzer):
             if len(cap) == 0:
                 return
             if end - start > 1:
-                for n in range(k // 2):
+                for n in range(1, k // 2):
                     trans = self._get_neighborhood(start + 1, pattern, k, n)
                     cap = cap.intersection(trans)
                     if len(cap) == 0:
@@ -178,10 +153,12 @@ class REPatternFuzzer(Fuzzer):
             return REPattern(pattern)
   
         target_vars = [pattern.value[start], pattern.value[end]]
-        trans_vars = [elem for elem in pattern.value[start + 1:end] if isinstance(elem, REVariable)]
+        trans_vars = [v for v in pattern.value[start + 1:end] if isinstance(v, REVariable)]
         attack_format = ""
+        cast_trans = False
 
-        # may be faster if pattern.value[:start] + {2} + not_last, but for pattern learning it's better
+        # may be faster if pattern.value[:start] + {2} + not_last,
+        # but for pattern learning it's better
         for i, elem in enumerate(pattern.value):
             if i == start:
                 attack_format += "{2}"
@@ -190,13 +167,14 @@ class REPatternFuzzer(Fuzzer):
             elif isinstance(elem, str):
                 attack_format += elem
             elif elem in trans_vars:
+                if not cast_trans and i < start:
+                    cast_trans = True
                 attack_format += f"[{trans_vars.index(elem)}]"
             elif elem in target_vars:
                 attack_format += f"{{{target_vars.index(elem)}}}"
             else:
                 attack_format += next(open_regex(elem.regex))
-        last = get_last(pattern.get_regex())
-        attack_format += random.choice(list(ALPHABET.difference(last)))
+        attack_format += get_attack_postfix(pattern.get_regex())
 
         ext_regex = pattern.get_ext_regex()
         max_score = -1
@@ -218,19 +196,20 @@ class REPatternFuzzer(Fuzzer):
             double_inter = inter * 2
             trans_subs = {var: [] for var in trans_vars}
             trans_count = 0
-            regex = pattern.sub(start + 1, end).get_ext_regex()
-            for word in open_regex(regex, rec_limit=len(inter)):
-                if double_inter.find(word) > -1:
-                    for var in vars:
-                        trans_count += 1
-                        trans_subs[var].append(var.regex.substitution)
-            if trans_count == 0:
-                continue
+            if cast_trans:
+                regex = pattern.sub(start + 1, end).get_ext_regex()
+                for word in open_regex(regex, rec_limit=len(inter)):
+                    if double_inter.find(word) > -1:
+                        for var in vars:
+                            trans_count += 1
+                            trans_subs[var].append(var.regex.substitution)
+                if trans_count == 0:
+                    continue
 
             # attack casting
             for start_sub in target_subs[target_vars[0]]:
-                for trans_i in range(trans_count):
-                    for end_sub in target_subs[target_vars[1]]:
+                for end_sub in target_subs[target_vars[1]]:
+                    for trans_i in range(trans_count):
                         target_sub = [start_sub, end_sub]
                         trans_sub = [trans_subs[var][trans_i] for var in trans_vars]
                         word = format_word(attack_format, inter, target_sub, trans_sub, n=2)
@@ -239,13 +218,26 @@ class REPatternFuzzer(Fuzzer):
                         if score > max_score:
                             max_score = score
                             result = [inter, target_sub, trans_sub]
+                    if not cast_trans:
+                        target_sub = [start_sub, end_sub]
+                        trans_sub = []
+                        word = format_word(attack_format, inter, target_sub, trans_sub, n=2)
+                        time = self.matcher.match_word(word, ext_regex, timeout)
+                        score = time / len(word)
+                        if score > max_score:
+                            max_score = score
+                            result = [inter, target_sub, trans_sub]
+
         if result is None:
             return
         times, lens = [], []
         for k in range(1, max_iter):
             word = format_word(attack_format, *result, n=k)
             lens.append(len(word))
-            times.append(self.matcher.match_word(word, ext_regex, timeout))
+            time = self.matcher.match_word(word, ext_regex, timeout)
+            if time == timeout:
+                return EXP_AMBIGUOUS, format_regex(attack_format, *result)
+            times.append(time)
         amb = self.ambiguity_analyzer.analyze(times, lens)
         if amb > NO_AMBIGUOUS:
             return amb, format_regex(attack_format, *result)
@@ -253,22 +245,18 @@ class REPatternFuzzer(Fuzzer):
     def _update_pumping_groups(
         self,
         pumping_groups: Dict[int, REMultipattern],
-        value: Tuple[int, REPattern]) -> None:
+        value: Tuple[int, REPattern|REMultipattern]) -> None:
         status, pump = value
         if status in pumping_groups:
-            pumping_groups[status].update(pump)
+            if isinstance(pump, REMultipattern):
+                pumping_groups[status].update(pump)
+            else:
+                pumping_groups[status].add(pump)
         else:
-            pumping_groups[status] = REMultipattern([pump])
-
-    def _make_attack_pattern(
-        self,
-        prefix: Regex,
-        var: Regex,
-        suffix: Optional[str] = None) -> REPattern:
-        attack = [next(open_regex(prefix)), REVariable(var)]
-        if suffix is not None:
-            attack.append(suffix)
-        return REPattern(attack)
+            if isinstance(pump, REMultipattern):
+                pumping_groups[status] = pump
+            else:
+                pumping_groups[status] = REMultipattern([pump])
     
     def run(
         self,
@@ -294,13 +282,16 @@ class REPatternFuzzer(Fuzzer):
             return pumping_groups
         for i, elem in enumerate(pattern.value):
             if isinstance(elem, REVariable):
-                if self.static_analyzer(str(elem.regex)) > NO_AMBIGUOUS:
-                    attack = self._make_attack_pattern(
+                status = self.static_analyzer(str(elem.regex))
+                if status > NO_AMBIGUOUS:
+                    attack_pattern = make_attack_pattern(
                         pattern.sub(i).get_ext_regex(),
                         elem.regex,
-                        random.choice(list(ALPHABET.difference(get_last(pattern.get_regex()))))
+                        get_attack_postfix(pattern.get_regex())
                     )
-                    self._update_pumping_groups(pumping_groups, attack)
+                    self._update_pumping_groups(
+                        pumping_groups,
+                        (status, attack_pattern))
                     if first:
                         return pumping_groups
                 if self.static_analyzer(pattern.sub(i + 1).get_regular_str()) == NO_AMBIGUOUS:

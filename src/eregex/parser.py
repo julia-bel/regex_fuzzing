@@ -1,7 +1,10 @@
 from re import match
 
-from src.eregex.const import (L_PAR, R_PAR, KLEENE_STAR, ALTERNATIVE, DIGITS, BACKSLASH)
-from src.eregex.regex import (BaseRegex, StarRegex, Regex, BackrefRegex, ConcatenationRegex, AlternativeRegex)
+from src.eregex.const import (
+    L_PAR, R_PAR, KLEENE_STAR, ALTERNATIVE, DIGITS, BACKSLASH)
+from src.eregex.regex import (
+    BaseRegex, StarRegex, Regex,
+    BackrefRegex, ConcatenationRegex, AlternativeRegex)
 
 
 class ERegexParser:

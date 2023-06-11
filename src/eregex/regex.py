@@ -8,6 +8,7 @@ from src.eregex.abstract_regex import Regex, NodeRegex
 
 class BaseRegex(Regex):
     def __str__(self) -> str:
+        if self.substitution is not None: return self.substitution
         return "(" + self.value + ")" if self.group else self.value
     
     def plot(
@@ -37,6 +38,7 @@ class BackrefRegex(Regex):
         self.regex_value = regex_value
 
     def __str__(self) -> str:
+        if self.substitution is not None: return self.substitution
         return "(" + self.value + ")" if self.group else self.value
     
     def __len__(self) -> int:
@@ -66,6 +68,7 @@ class ConcatenationRegex(NodeRegex):
         self.unpack()
 
     def __str__(self) -> str:
+        if self.substitution is not None: return self.substitution
         if self.flat_len() == 1:
             string = str(self.value[0])
         else:
@@ -110,6 +113,7 @@ class AlternativeRegex(NodeRegex):
         super().__init__(value, group)
 
     def __str__(self) -> str:
+        if self.substitution is not None: return self.substitution
         string = "|".join([str(v) for v in self.value])
         return "(" + string + ")" if self.group else string
 
@@ -143,6 +147,7 @@ class StarRegex(NodeRegex):
         return 1
 
     def __str__(self) -> str:
+        if self.substitution is not None: return self.substitution
         string = f"({self.value})*" if len(self.value) > 1 and not self.value.group else f"{self.value}*"
         return "(" + string + ")" if self.group else string
 

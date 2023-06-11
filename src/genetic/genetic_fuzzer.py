@@ -1,20 +1,35 @@
 import numpy as np
 
-from typing import Tuple, Any, List, Callable
-from random import randint, choice
+from typing import Tuple, Any, List, Callable, Optional
+from random import randint, choice, sample, choices
+
+
+def softmax(x: List[float]):
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=0)
 
 
 class GeneticFuzzer:
-    
-    def __init__(self) -> None:
-        self.dictionary = []
+    """Genetic fuzzing implementation"""
+
+    def __init__(self, weights: Optional[List[float]]):
+        self.vocab = []
         self.generation = []
         self.mutations = [
+            self.append,
             self.insert,
             self.delete,
             self.replicate,
-            self.reverse
+            self.reverse,
+            self.cyclic_shift,
         ]
+        if weights is None:
+            weights = [0.9, 0.6, 0.7, 0.5, 0.5, 0.8]
+        self.set_weights(weights)
+
+    def set_weights(self, weights: List[float]):
+        assert len(weights) == len(self.mutations), "incorrect weights"
+        self.weights = softmax(weights)
 
     def pump(self, word: str, score_func: Callable) -> List[int]:
         length = len(word)
@@ -28,18 +43,62 @@ class GeneticFuzzer:
                     max_score = score
                     bounds = [i, j]
         return bounds
-
-    def evolve(self, parent: str, fitness_func: Callable, num_epochs: int = 10) -> Tuple[str, Any]:
-        self.dictionary = list(parent)
-        self.generation = self.dictionary
+    
+    # TODO: evolution
+    def evolve(
+        self,
+        parent: str,
+        fitness_func: Callable,
+        num_epochs: int = 10) -> Tuple[str, Any]:
+        self.vocab = list(parent)
+        self.generation = self.vocab
         for _ in num_epochs:
-            self.next_generation()
+            pass
+            # self.next_generation()
         best = np.argmax([fitness_func(elem) for elem in self.generation])
         return best, self.pump(best, fitness_func)
+    
+    def cast(
+        self,
+        parents: List[str],
+        vocab: List[str],
+        binary_func: Callable,
+        num_epochs: int = 30,
+        min_iters: int = 20,
+        mutations_range: List[int] = [1, 2]) -> List[str]:
+        """Selecting strings that match a binary function
 
-    def next_generation(self, size: int = 10) -> Any:
-        for parent in self.generation:
-            pass
+        Args:
+            parents (str): base words for mutation.
+            binary_func (Callable): binary selection function.
+            num_epochs (int, optional): defaults to 10.
+            min_iters (int): min number of base words in epoch. Defaults to 20.
+            mutations_range (List[int]): range of the amount of mutations to use. Defaults to [1, 2].
+
+        Returns:
+            List[str]: mutation results.
+        """
+        self.vocab = vocab
+        result = set()
+        base = parents
+        for _ in num_epochs:
+            delta = min_iters - len(base)
+            if delta > 0:
+                base += sample(base, delta)
+            new_base = parents
+            for word in base:
+                mutation_indexes = choices(
+                    range(self.mutations),
+                    weights=self.weights,
+                    k=randint(*mutations_range))
+                for i in mutation_indexes:
+                    word = self.mutations[i](word)
+                    if binary_func(word):
+                        result.add(word)
+                        self.weights[i] += 0.1
+                        self.weights = softmax(self.weights)
+                new_base.append(word)
+        return result
         
     def cross_over(
         self,
@@ -49,13 +108,13 @@ class GeneticFuzzer:
         """Random substring exchange
 
         Args:
-            string_1 (str): input
-            string_2 (str): input
+            string_1 (str): input.
+            string_2 (str): input.
             chars_range (List[int], optional): defines amount of chars to exchange. 
                 Defaults to [1, 3].
 
         Returns:
-            Tuple[str, str]: result
+            Tuple[str, str]: result.
         """        
         num_chars = min([len(string_1), len(string_2), randint(*chars_range)])
         offset_1 = randint(0, len(string_1) - num_chars)
@@ -66,21 +125,13 @@ class GeneticFuzzer:
             string_2[offset_2 + num_chars]
         return result_1, result_2
     
-    def insert(
-        self,
-        string: str,
-        rep_range: List[int] = [1, 3]) -> str:
-        """Random insertion of substring from dictionary
-
-        Args:
-            string (str): input
-            rep_range (List[int], optional): defines amount of replications of dictionary string. 
-                Defaults to [1, 3].
-
-        Returns:
-            str: result
-        """        
-        sub = choice(self.dictionary) * randint(*rep_range)
+    def append(self, string: str) -> str:
+        part = choice(self.vocab)
+        result = string + part if choice([0, 1]) else part + string
+        return result
+    
+    def insert(self, string: str) -> str:     
+        sub = choice(self.vocab)
         result = ''.join(list(string).insert(randint(0, len(string) - 1), sub))
         return result
     
@@ -88,11 +139,11 @@ class GeneticFuzzer:
         """Random deletion of substring
 
         Args:
-            string (str): input
+            string (str): input.
             del_range (List[int], optional): defines amount of chars to delete. Defaults to [1, 3].
 
         Returns:
-            str: result
+            str: result.
         """        
         offset = randint(0, len(string) - 1)
         result = string[:offset] + string[offset + randint(*del_range):]
@@ -106,12 +157,12 @@ class GeneticFuzzer:
         """Random replication of substring
 
         Args:
-            string (str): input
+            string (str): input.
             chars_range (List[int], optional): defines amount of chars to replicate. Defaults to [1, 3].
             rep_range (List[int], optional): defines amount of replications. Defaults to [1, 3].
 
         Returns:
-            str: result
+            str: result.
         """
         chars_num = randint(*chars_range) 
         offset = randint(0, len(string) - chars_num)
@@ -126,11 +177,11 @@ class GeneticFuzzer:
         """Reverse random substring
 
         Args:
-            string (str): input
+            string (str): input.
             chars_range (List[int], optional): defines amount of chars to reverse. Defaults to [1, 3].
 
         Returns:
-            str: result
+            str: result.
         """
         chars_num = min(len(string), randint(*chars_range))
         offset = randint(0, len(string) - chars_num)
@@ -145,10 +196,10 @@ class GeneticFuzzer:
         """Cyclic shift of random substring
 
         Args:
-            string (str): input
+            string (str): input.
             chars_range (List[int], optional): defines amount of chars to shift. Defaults to [1, 3].
         Returns:
-            str: result
+            str: result.
         """        
         chars_num = min(len(string), randint(*chars_range))
         offset = randint(0, len(string) - chars_num)

@@ -5,7 +5,10 @@ END_MARKER = "-"
 NO_AMBIGUOUS = 0
 POLY_AMBIGUOUS = 1
 EXP_AMBIGUOUS = 2
+SUBSTITUTION = 0
+CUTTION = 1
 EPSILON = "ε"
+EMPTY = ""
 ALPHABET = set("abcdefghijklmnopqrstuvwxyz")
 
 LINEAR_FUNC = lambda t, a, b: a * t + b

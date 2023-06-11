@@ -13,9 +13,19 @@ class Regex(ABC):
         self.value = value
         self.name  = ""
         self.group = group
+        self.substitution = None
 
     def match(self, word: str) -> bool:
         return re.match("^" + str(self) + "$", word)
+    
+    def substitute(self, word: Optional[str]) -> None:
+        self.substitution = word
+
+    def delete_group(self):
+        self.group = False
+
+    def get_substitution(self) -> str:
+        return self.substitution
 
     def __len__(self) -> int:
         return len(self.value)
@@ -45,3 +55,7 @@ class NodeRegex(Regex):
     @abstractmethod
     def unpack(self):
         pass
+
+    def delete_group(self):
+        for value in self.value:
+            value.delete_group()

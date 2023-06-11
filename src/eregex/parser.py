@@ -32,10 +32,12 @@ class ERegexParser:
             char = self.next_char()
             if char == L_PAR:
                 self.opened_parentheses += 1
+                id = self.opened_parentheses
                 add2parsed(curr_regex)
                 curr_regex = ""
                 parsed.append(self.parse())
-                self.capture_groups[str(self.closed_parentheses)] = parsed[-1]
+                print(parsed[-1])
+                self.capture_groups[str(id)] = parsed[-1]
             elif char == R_PAR:
                 self.closed_parentheses += 1
                 assert self.closed_parentheses <= self.opened_parentheses, "invalid parentheses"

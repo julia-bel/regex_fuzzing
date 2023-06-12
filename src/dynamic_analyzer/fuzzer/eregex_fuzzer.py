@@ -9,11 +9,13 @@ from src.const import (
     EMPTY, EXP_AMBIGUOUS, POLY_AMBIGUOUS,
     NO_AMBIGUOUS, SUBSTITUTION, CUTTION)
 from src.dynamic_analyzer.utils import (
-    get_generator, trim_first, trim_last, get_digit_prefix,
-    invert_mask, check_regex_intersection, get_attack_postfix)
-from src.dynamic_analyzer.neighborhood import (
-    get_regex_first_k, get_regex_last_k, open_regex,
-    get_n_neighborhood, get_zero_neighborhood)
+    get_generator, invert_mask,
+    check_regex_intersection, get_attack_postfix)
+from src.dynamic_analyzer.neightborhood.eregex_utils import (
+    open_regex, reopen_regex,
+    get_n_neighborhood, get_zero_neighborhood,
+    Path, update_storage, intersect_storages)
+
 from src.dynamic_analyzer.const import (NO, IN, OUT, ABOUT)
 from src.dynamic_analyzer.fuzzer.abstract_fuzzer import Fuzzer
 from src.multipattern.repattern import REPattern, REVariable
@@ -22,7 +24,7 @@ from src.eregex.parser import ERegexParser
 from src.eregex.abstract_regex import NodeRegex
 from src.eregex.regex import (
     Regex, BaseRegex, StarRegex, AlternativeRegex,
-    ConcatenationRegex, BackrefRegex, ext_to_classic)
+    ConcatenationRegex, BackrefRegex, ext_to_classic, ordered)
 
 
 class ERegexFuzzer(Fuzzer):
@@ -159,39 +161,128 @@ class ERegexFuzzer(Fuzzer):
             return source
         return self._find_parent(source.value, target)
     
-    # TODO: make function
+    def _get_attack_prefix(self, source: Regex, target: Regex, sub: List[str|Regex]) -> Optional[Regex]:
+        # make substitutions
+        def find_prefix(source: Regex, target: Regex, prefix: List[Regex]) -> bool:
+            if source == target:
+                prefix += sub
+                return True
+            if isinstance(source, BaseRegex):
+                prefix.append(source.value)
+                return False
+            if isinstance(source, BackrefRegex):
+                prefix.append(source.regex_value.substitution)
+                return False
+            if isinstance(source, StarRegex):
+                pref = []
+                is_found = find_prefix(source.value, target, pref)
+                if is_found:
+                    prefix.append(StarRegex(ConcatenationRegex(pref)))
+                else:
+                    prefix += pref
+                return is_found
+            if isinstance(source, ConcatenationRegex):
+                pref = []
+                for value in source.value:
+                    if find_prefix(value, target, pref):
+                        prefix += pref
+                        return True
+                prefix += pref
+                return False
+            # AlternativeRegex
+            for value in source.value:
+                pref = []
+                if find_prefix(value, target, pref):
+                    prefix += pref
+                    return True
+            prefix += pref
+            return False
+            
+        prefix = []
+        if find_prefix(source, target, prefix):
+            # make pattern
+            return format_pattern(prefix + get_attack_postfix(source))
+        
+
+    # def _get_prefix(self, source: Regex, target: Regex) -> Optional[Regex]:
+
+    #     def find_prefix(source: Regex, target: Regex, prefix: List[Regex]) -> bool:
+    #         if source == target:
+    #             prefix.append(target)
+    #             return True
+    #         if isinstance(source, BaseRegex) or isinstance(source, BackrefRegex):
+    #             prefix.append(source)
+    #             return False
+    #         if isinstance(source, StarRegex):
+    #             pref = []
+    #             is_found = find_prefix(source.value, target, pref)
+    #             prefix.append(StarRegex(ConcatenationRegex(pref)))
+    #             return is_found
+    #         if isinstance(source, ConcatenationRegex):
+    #             pref = []
+    #             for value in source.value:
+    #                 if find_prefix(value, target, pref):
+    #                     prefix += pref
+    #                     return True
+    #             prefix += pref
+    #             return False
+    #         # AlternativeRegex
+    #         for value in source.value:
+    #             pref = []
+    #             if find_prefix(value, target, pref):
+    #                 prefix += pref
+    #                 return True
+    #         prefix += pref
+    #         return False
+            
+    #     prefix = []
+    #     if find_prefix(source, target, prefix):
+    #         return ConcatenationRegex(prefix)
+    
     def _simplify_regex(self, main_regex: Regex) -> Regex:
 
-        # def replace(self, source: Regex, target: Regex) -> Optional[Regex]:
-        #     if type(source) is not NodeRegex:
-        #         return
-        #     if isinstance(source, ConcatenationRegex) or isinstance(source, AlternativeRegex):
-        #         for value in source.value:
-        #             if value == target:
-        #                 return source
-        #             parent = self._find_parent(value, target)
-        #             if parent is not None:
-        #                 return parent
-        #     if source.value == target:
-        #         return source
-        #     return self._find_parent(source.value, target)
+        def replace(regex: Regex, target: Regex, replacement: ConcatenationRegex):
+            if isinstance(regex, BaseRegex) or isinstance(regex, BackrefRegex):
+                return
+            if isinstance(regex, ConcatenationRegex) or isinstance(regex, AlternativeRegex):
+                for i, value in enumerate(regex.value):
+                    if isinstance(value, BackrefRegex) and value.regex_value == target:
+                        regex.value[i] = replacement
+                    else:
+                        replace(value, target, replacement)
+            else: # StarRegex
+                value = regex.value
+                if isinstance(value, BackrefRegex) and value.regex_value == target:
+                    regex.value = replacement
+                else:
+                    replace(value, target, replacement)
             
-        # def simplify(regex: Regex):
-        #     new_regex = []
-        #     if isinstance(regex, BaseRegex):
-        #         return [BaseRegex]
-        #     if isinstance(regex, StarRegex):
-        #         return [StarRegex(simplify(regex.value))]
-        #     if isinstance(regex, ConcatenationRegex):
-        #         new_group = []
-        #         if regex.group:
-        #             for value in regex.value:
-        #                 if isinstance(value, StarRegex):
-        #                     value.group = True
-        #                     new_group.append(value)
-        #         for 
-        #     if isinstance(regex, BackrefRegex):
-        #         return self._is_finite(regex.regex_value)
+        def simplify(regex: Regex) -> bool:
+            if isinstance(regex, BaseRegex) or isinstance(regex, BackrefRegex):
+                return False
+            if isinstance(regex, StarRegex):
+                return simplify(regex.value)
+            if isinstance(regex, ConcatenationRegex):
+                if regex.group:
+                    replacement = []
+                    for value in regex.value:
+                        if isinstance(value, StarRegex) or isinstance(value, AlternativeRegex):
+                            value.group = True
+                            replacement.append(BackrefRegex("", value))
+                        replacement.append(value)
+                    replacement = ConcatenationRegex(replacement)
+                    replace(main_regex, regex, replacement)
+                    regex.group = False
+                    return True
+            is_simplified = False
+            for value in regex.value:
+                if simplify(value):
+                    is_simplified = True
+            return is_simplified
+            
+        while simplify(main_regex):
+            continue
+        ordered(main_regex)
         return main_regex
     
     def _get_neighborhood(
@@ -199,7 +290,7 @@ class ERegexFuzzer(Fuzzer):
         index: int,
         case: ConcatenationRegex,
         k: int,
-        n: int = 0) -> Set[str]:
+        n: int = 0) -> Dict[str, List[Path]]:
         """Getting of left n-k-neighborhood
 
         Args:
@@ -224,26 +315,26 @@ class ERegexFuzzer(Fuzzer):
         start: int,
         end: int,
         radius_range: Iterable[int],
-        top_k: int = 10) -> Optional[List[str]]:
+        top_k: int = 10) -> Optional[Dict[str, List[Path]]]:
         if self.static_analyzer(case.sub(start, end + 1).get_regular_str()) == NO_AMBIGUOUS:
             return
-        intersections = set()
+        intersections = {}
         for k in radius_range:
             x_1 = self._get_neighborhood(start, case, k)
             x_2 = self._get_neighborhood(end, case, k)
-            if len(x_1) == 0 or len(x_2) == 0:
+            if len(x_1.keys()) == 0 or len(x_2.keys()) == 0:
                 break
-            cap = x_1.intersection(x_2)
+            cap = intersect_storages(x_1, x_2)
             if len(cap) == 0:
                 return
             if end - start > 1:
                 for n in range(1, k // 2):
                     trans = self._get_neighborhood(start + 1, case, k, n)
-                    cap = cap.intersection(trans)
+                    cap = intersect_storages(cap, trans)
                     if len(cap) == 0:
                         return
             if len(intersections) < top_k:
-                intersections.update(cap)
+                update_storage(intersections, cap)
         return sorted(intersections)
     
     def pump(
@@ -251,20 +342,18 @@ class ERegexFuzzer(Fuzzer):
         case: ConcatenationRegex,
         start: int,
         end: int,
-        intersection: List[str],
+        intersection: Dict[str, List[Path]],
         timeout: float = 0.5,
-        num_epochs: int = 10,
         rec_limit: int = 3,
         max_iter: int = 30) -> Optional[Tuple[int, REPattern]]:
         """Synchronous pumping
 
         Args:
-            pattern (REPattern).
+            case (ConcatenationRegex).
             start (int): index of the first variable.
             end (int): index of the last variable.
             intersection (List[str]): list of neighborhoods.
             timeout (float, optional): matching timeout. Defaults to 0.5.
-            num_epochs (int, optional): number of epochs to evolve. Defaults to 10.
             rec_limit (int, optional): limit for opening transition. Defaults to 3.
             max_iter (int, optional): max number of pumping iterations. Defaults to 30.
 
@@ -273,98 +362,60 @@ class ERegexFuzzer(Fuzzer):
         """
         def format_word(
             inter: str,
-            subs: List[str],
-            trans_subs: List[str],
+            trans_subs: Dict[Regex, str],
+            target_subs: Dict[Regex, str],
             n: int = 2) -> str:
-            # corners
-            for i, word in enumerate(subs):
-                target_vars[i].substitute(word)
-            # transition
-            for i, word in enumerate(trans_subs):
-                trans_vars[i].substitute(word)
-            # core
-            attack = attack_format.replace("{2}", inter * (2 * n))
+            for var, sub in trans_subs.items():
+                var.substitute(sub)
+            for var, sub in target_subs.items():
+                var.substitute(sub * n)
+            first_sub = target_subs[0]
+            inter_start = first_sub.find(inter)
+            core = first_sub[:inter_start] + inter * (2 * n)
+            attack = open_regex(case.sub(end=start)) + core + postfix
             return attack
         
+        # TODO: make normal cast
         def format_regex(
             inter: str,
-            subs: List[str],
-            trans_subs: List[str]) -> REPattern:
+            trans_subs: Dict[Regex, str],
+            target_subs: Dict[Regex, str],
+            var_id: str = "x") -> REPattern:
             # make new variables
             target_regex_subs = []
+            for var, sub in trans_subs.items():
+                if isinstance(var, BackrefRegex):
+                    var.value = var.value.replace("\\", var_id)
             for word in subs:
                 target_regex_subs.append(REVariable(ERegexParser(f"({word})*").parse()))
             target_regex_subs.append(REVariable(ERegexParser(f"({inter})*").parse()))
             # construst pattern
-            i = 0
             pattern = []
-            while i < len(attack_format):
-                if attack_format[i] != "{" and attack_format[i] != "[":
-                    pattern.append(attack_format[i])
-                else:
-                    id = get_digit_prefix(attack_format[i+1:])
-                    pattern.append(target_regex_subs[id] if attack_format[i] == "{" else trans_subs[id])
-                    i += len(id) + 1
-                i += 1
             return REPattern(pattern)
   
         target_vars = [case.value[start], case.value[end]]
-        trans_vars = [v for v in case.value[start + 1:end] if not isinstance(v, BaseRegex)]
-        cast_trans = self._check_node_inside(
-            case.sub(start + 1, end),
-            lambda x: isinstance(x, BackrefRegex))
         postfix = get_attack_postfix(case)
         str_case = str(case)
         max_score = -1
         result = None
-        for inter in intersection:
-            # target vars
-            target_subs = {}
-            for var in target_vars:
-                regex = var.regex
-                regex_str = str(regex)
-                target_subs[var] = self.fuzzer.cast(
-                    [inter],
-                    [""] + trim_last(get_regex_first_k(regex, k=len(var.regex))) + \
-                    trim_first(get_regex_last_k(regex, k=len(var.regex))),
-                    fitness_func = lambda x: self.matcher.match_word(x, regex_str),
-                    num_epochs = num_epochs)
-            
-            # transition vars
-            double_inter = inter * 2
-            trans_subs = {var: [] for var in trans_vars}
-            trans_count = 0
-            if cast_trans:
-                regex = case.sub(start + 1, end)
-                for word in open_regex(regex, rec_limit=len(inter)):
-                    if double_inter.find(word) > -1:
-                        for var in vars:
-                            trans_count += 1
-                            trans_subs[var].append(var.regex.substitution)
-                if trans_count == 0:
-                    continue
 
-            # attack casting
-            for start_sub in target_subs[target_vars[0]]:
-                for end_sub in target_subs[target_vars[1]]:
-                    for trans_i in range(trans_count):
-                        target_sub = [start_sub, end_sub]
-                        trans_sub = [trans_subs[var][trans_i] for var in trans_vars]
-                        word = format_word(inter, target_sub, trans_sub, n=2)
-                        time = self.matcher.match_word(word, str_case, timeout)
-                        score = time / len(word)
-                        if score > max_score:
-                            max_score = score
-                            result = [inter, target_sub, trans_sub]
-                    if not cast_trans:
-                        target_sub = [start_sub, end_sub]
-                        trans_sub = []
-                        word = format_word(inter, target_sub, trans_sub, n=2)
-                        time = self.matcher.match_word(word, str_case, timeout)
-                        score = time / len(word)
-                        if score > max_score:
-                            max_score = score
-                            result = [inter, target_sub, trans_sub]
+        # substitutions casting
+        for inter, memory in intersection.items():
+            subs = {b: [] for b in self._get_backrefs(case.sub(start, end + 1)) if b not in target_vars}
+            target_subs = {t: [] for t in target_vars}
+            regex = case.sub(start, end + 1)
+            for path in memory:
+                for word in reopen_regex(regex, path.value, rec_limit=len(inter) // 2):
+                    for var in subs.keys():
+                        subs[var].append(var.substitution)
+                    for var in target_subs.keys():
+                        target_subs[var].append(var.substitution)
+                    word = format_word(inter, target_subs, subs, n=2)
+                    time = self.matcher.match_word(word, str_case, timeout)
+                    score = time / len(word)
+                    if score > max_score:
+                        max_score = score
+                        result = [inter, target_subs, subs]
 
         if result is None:
             return
@@ -500,10 +551,11 @@ class ERegexFuzzer(Fuzzer):
                         result = self._process_regex(double_iter)
                         for status in [POLY_AMBIGUOUS, EXP_AMBIGUOUS]:
                             if status in result:
+                                attack_pattern = open(main_regex) # result[status]
                                 # TODO: patterns are incorrect - add prefix
                                 self._update_pumping_groups(
                                     pumping_groups,
-                                    (EXP_AMBIGUOUS, result[status]))
+                                    (EXP_AMBIGUOUS, attack_pattern))
                                 if first:
                                     return pumping_groups
                 elif isinstance(value, AlternativeRegex):
@@ -525,7 +577,10 @@ class ERegexFuzzer(Fuzzer):
                                     if first:
                                         return pumping_groups
                 elif isinstance(value, StarRegex):
-                    # make some pattern
+                    # TOOD: get prefix
+                    self._update_pumping_groups( 
+                        pumping_groups,
+                        (EXP_AMBIGUOUS, result[status]))
                     if first:
                         return pumping_groups
                 # constructing substitutions

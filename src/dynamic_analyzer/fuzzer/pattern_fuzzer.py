@@ -5,7 +5,7 @@ from src.dynamic_analyzer.utils import (
     trim_last, trim_first, get_digit_prefix,
     make_attack_pattern, get_attack_postfix,
     check_intersection)
-from src.dynamic_analyzer.neighborhood import (
+from src.dynamic_analyzer.neightborhood.pattern_utils import (
     get_regex_first_k, get_regex_last_k, open_regex,
     get_n_neighborhood, get_zero_neighborhood)
 from src.eregex.parser import ERegexParser
@@ -126,7 +126,10 @@ class REPatternFuzzer(Fuzzer):
             for i, word in enumerate(trans_subs):
                 attack_format = attack_format.replace(f"[{i}]", word)
             # core
-            attack = attack_format.replace("{2}", inter * (2 * n))
+            first_sub = subs[0]
+            inter_start = first_sub.find(inter)
+            core = first_sub[:inter_start] + inter * (2 * n)
+            attack = attack_format.replace("{2}", core)
             return attack
         
         def format_regex(

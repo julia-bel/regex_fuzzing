@@ -81,7 +81,7 @@ def get_regex_last_k(regex: Regex, k: int) -> Tuple[Set[str], Set[str]]:
     sub = set(s[::-1] for s in sub)
     return exact, sub
 
-# TODO: make context sensitive
+
 def get_n_neighborhood(start_regex: Regex, end_regex: Regex, n: int, k: int) -> Set[str]:
     prefix = get_regex_last_k(start_regex, n)
     suffix = get_regex_first_k(end_regex, k - n)
@@ -90,7 +90,7 @@ def get_n_neighborhood(start_regex: Regex, end_regex: Regex, n: int, k: int) -> 
     neighborhood = set(p + s for p in prefix for s in suffix)
     return neighborhood
 
-# TODO: make context sensitive
+
 def get_zero_neighborhood(regex: Regex, k: int) -> Set[str]:
     neighborhood = set()
     if isinstance(regex, BaseRegex):

@@ -4,7 +4,7 @@ import random
 import numpy as np
 
 from src.const import ALPHABET
-from src.dynamic_analyzer.neighborhood import open_regex
+from src.dynamic_analyzer.neightborhood.pattern_utils import open_regex
 from src.multipattern.repattern import REPattern, REVariable
 from src.const import EPSILON
 from src.eregex.regex import (

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional, Iterator
+from typing import List, Optional, Iterator, Dict
 from graphviz import Digraph
 
 from src.eregex.utils import key_generator
@@ -170,7 +170,6 @@ class StarRegex(NodeRegex):
 
     def reverse(self) -> StarRegex:
         return StarRegex(self.value.reverse())
-    
 
 # TODO: make better
 def ext_to_classic(regex: Regex) -> str:
@@ -190,3 +189,16 @@ def ext_to_classic(regex: Regex) -> str:
         return f"({ext_to_classic(regex.value)})*"
     # if isinstance(regex, BackrefRegex):
     return ext_to_classic(regex.regex_value)
+
+def ordered(regex: Regex, groups: Optional[Dict[Regex, str]] = None):
+    if groups is None:
+        groups = {}
+    if regex.group:
+        groups[regex] = "\\" + str(len(groups) + 1)
+    if isinstance(regex, BackrefRegex):
+        regex.value = groups[regex.regex_value]
+    elif isinstance(regex, ConcatenationRegex) or isinstance(regex, AlternativeRegex):
+        for value in regex.value:
+            ordered(value, groups)
+    elif isinstance(regex, StarRegex):
+        ordered(regex.value, groups)

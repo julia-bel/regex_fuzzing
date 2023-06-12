@@ -30,18 +30,18 @@ class GeneticFuzzer:
         assert len(weights) == len(self.mutations), "incorrect weights"
         self.weights = softmax(weights)
 
-    def pump(self, word: str, score_func: Callable) -> List[int]:
-        length = len(word)
-        max_score = -1
-        bounds = [0, 0]
-        for i in range(length):
-            for j in range(i, length):
-                attack = word[:i] + word[i:j] * 2 + word[j:]
-                score = score_func(attack)
-                if score > max_score:
-                    max_score = score
-                    bounds = [i, j]
-        return bounds
+    # def pump(self, word: str, score_func: Callable) -> List[int]:
+    #     length = len(word)
+    #     max_score = -1
+    #     bounds = [0, 0]
+    #     for i in range(length):
+    #         for j in range(i, length):
+    #             attack = word[:i] + word[i:j] * 2 + word[j:]
+    #             score = score_func(attack)
+    #             if score > max_score:
+    #                 max_score = score
+    #                 bounds = [i, j]
+    #     return bounds
     
     # TODO: evolution
     # def evolve(

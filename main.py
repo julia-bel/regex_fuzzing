@@ -61,13 +61,14 @@ def main(
     if pattern:
         fuzzer = REPatternFuzzer(genetic, matcher, analyzer, ambiguity_analyzer)
         value = regex_to_pattern(value)
+        assert value is not None, "incorrect pattern"
     else:
         fuzzer = ERegexFuzzer(genetic, matcher, analyzer, ambiguity_analyzer)
     log(fuzzer.run(value, radius, timeout, first))
 
 
 if __name__ == "__main__":
-    # base_examples = ["a(a*)\\1", "bcaa(c*)cccc\\1", "a(a*)(b|a)*a\\1"]
+    base_examples = ["a(a*)\\1", "bcaa(c*)cccc\\1", "a(a*)(b|a)*a\\1"]
 
     parser = argparse.ArgumentParser(
         description='''Dynamic complexity analysis of regular expressions and re-patterns''')

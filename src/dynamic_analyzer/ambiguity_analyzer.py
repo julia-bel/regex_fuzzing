@@ -1,7 +1,10 @@
 from scipy.optimize import curve_fit
 from typing import List
+import numpy as np
 
-from src.const import *
+from src.const import (
+    NO_AMBIGUOUS, POLY_AMBIGUOUS, EXP_AMBIGUOUS, 
+    LINEAR_FUNC, POLY_FUNC, EXP_FUNC)
 
 
 class AmbiguityAnalyzer:
@@ -26,3 +29,8 @@ class AmbiguityAnalyzer:
                 min_loss = loss
                 min_func = status
         return min_func
+    
+    # def analyze(self, time: List[float], length: List[int]) -> int:
+    #     last_k = time[-1] / length[-1]
+    #     mean_k = np.mean(time[-1]) / np.mean(length[-1])
+    #     return POLY_AMBIGUOUS if last_k / mean_k > 0.5 else NO_AMBIGUOUS

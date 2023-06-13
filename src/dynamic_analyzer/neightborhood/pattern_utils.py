@@ -29,7 +29,7 @@ def open_regex(regex: Regex, rec_limit: int = 1) -> Iterator[str]:
     else:
         yield regex.regex_value.substitution
 
-# TODO: make context sensitive
+
 def get_regex_first_k(regex: Regex, k: int) -> Tuple[Set[str], Set[str]]:
     exact = set()
     sub = set() #  if k > 0 else set("")
@@ -65,12 +65,12 @@ def get_regex_first_k(regex: Regex, k: int) -> Tuple[Set[str], Set[str]]:
                 for i in range(1, k // part):
                     mod = k - i * part
                     if mod == 0:
-                        exact.update(set(item * i for item in e))
+                        exact.update(set(item for item in product(e, repeat=i)))
                     else:
                         ex, s = get_regex_first_k(regex.value, mod)
-                        exact.update(set(prefix * i + suffix 
-                            for prefix in e for suffix in ex.union(s)))
-    else: # TODO: generator, that saves init state of backref
+                        exact.update(set(prefix + suffix
+                            for prefix in product(e, repeat=i) for suffix in ex.union(s)))
+    else:
         return get_regex_first_k(regex.regex_value, k)
     return exact, sub
 

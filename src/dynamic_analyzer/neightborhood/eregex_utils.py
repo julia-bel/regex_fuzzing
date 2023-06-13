@@ -204,6 +204,7 @@ def open_regex(regex: Regex, rec_limit: int = 1) -> Iterator[str]:
     if regex.substitution is not None:
         yield regex.substitution
     elif isinstance(regex, BaseRegex):
+        regex.substitute(str(regex))
         yield str(regex)
     elif isinstance(regex, AlternativeRegex):
         for value in regex.value:
@@ -221,12 +222,15 @@ def open_regex(regex: Regex, rec_limit: int = 1) -> Iterator[str]:
         values = list(set(v for v in open_regex(regex.value, rec_limit)))
         for limit in range(rec_limit):
             for permutation in product(values, limit):
+                regex.substitute(permutation)
                 yield permutation
     else:
         if regex.regex_value.substitution is not None:
+            regex.substitute(regex.regex_value.substitution)
             yield regex.regex_value.substitution
         else:
             for parent_sub in open_regex(regex.regex_value, rec_limit):
+                regex.substitute(parent_sub)
                 yield parent_sub
 
 

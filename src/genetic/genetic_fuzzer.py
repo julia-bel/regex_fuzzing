@@ -30,34 +30,45 @@ class GeneticFuzzer:
         assert len(weights) == len(self.mutations), "incorrect weights"
         self.weights = softmax(weights)
 
-    # def pump(self, word: str, score_func: Callable) -> List[int]:
-    #     length = len(word)
-    #     max_score = -1
-    #     bounds = [0, 0]
-    #     for i in range(length):
-    #         for j in range(i, length):
-    #             attack = word[:i] + word[i:j] * 2 + word[j:]
-    #             score = score_func(attack)
-    #             if score > max_score:
-    #                 max_score = score
-    #                 bounds = [i, j]
-    #     return bounds
-    
-    # TODO: evolution
-    # def evolve(
-    #     self,
-    #     parent: str,
-    #     fitness_func: Callable,
-    #     num_epochs: int = 10) -> Tuple[str, Any]:
-    #     self.vocab = list(parent)
-    #     self.generation = self.vocab
-    #     for _ in num_epochs:
-    #         pass
-    #         # self.next_generation()
-    #     best = np.argmax([fitness_func(elem) for elem in self.generation])
-    #     return best, self.pump(best, fitness_func)
-    
     def cast(
+        self,
+        parents: List[str],
+        vocab: List[str],
+        binary_func: Callable,
+        num_epochs: int = 30,
+        min_iters: int = 20,
+        mutations_range: List[int] = [1, 2]) -> Optional[str]:
+        """Selecting strings that match a binary function
+
+        Args:
+            parents (str): base words for mutation.
+            binary_func (Callable): binary selection function.
+            num_epochs (int, optional): defaults to 10.
+            min_iters (int): min number of base words in epoch. Defaults to 20.
+            mutations_range (List[int]): range of the amount of mutations to use. Defaults to [1, 2].
+
+        Returns:
+            List[str]: mutation results.
+        """
+        self.vocab = vocab
+        base = parents
+        for _ in num_epochs:
+            delta = min_iters - len(base)
+            if delta > 0:
+                base += sample(base, delta)
+            new_base = parents
+            for word in base:
+                mutation_indexes = choices(
+                    range(self.mutations),
+                    weights=self.weights,
+                    k=randint(*mutations_range))
+                for i in mutation_indexes:
+                    word = self.mutations[i](word)
+                    if binary_func(word):
+                        return word
+                new_base.append(word)
+    
+    def cast_population(
         self,
         parents: List[str],
         vocab: List[str],

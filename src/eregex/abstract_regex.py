@@ -29,6 +29,9 @@ class Regex(ABC):
 
     def __len__(self) -> int:
         return len(self.value)
+    
+    def delete_substitution(self):
+        self.substitute(None)
 
     @abstractmethod
     def __str__(self) -> str:
@@ -59,3 +62,8 @@ class NodeRegex(Regex):
     def delete_group(self):
         for value in self.value:
             value.delete_group()
+
+    def delete_substitution(self):
+        self.substitute(None)
+        for value in self.value:
+            value.delete_substitution()

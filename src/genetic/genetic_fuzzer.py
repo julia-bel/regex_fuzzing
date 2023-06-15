@@ -1,5 +1,6 @@
-from typing import Tuple, List, Callable, Optional
+from typing import Tuple, List, Callable, Optional, Set
 from random import randint, choice, sample, choices
+from copy import deepcopy
 import numpy as np
 
 
@@ -32,7 +33,7 @@ class GeneticFuzzer:
 
     def cast(
         self,
-        parents: List[str],
+        parents: Set[str],
         vocab: List[str],
         binary_func: Callable,
         num_epochs: int = 30,
@@ -51,22 +52,29 @@ class GeneticFuzzer:
             List[str]: mutation results.
         """
         self.vocab = vocab
-        base = parents
-        for _ in num_epochs:
+        base = deepcopy(parents)
+        mutations_idxs = range(len(self.mutations))
+
+        for _ in range(num_epochs):
             delta = min_iters - len(base)
-            if delta > 0:
-                base += sample(base, delta)
-            new_base = parents
+            for parent in parents:
+                if parent not in base:
+                    base.add(parent)
+                    delta -= 1
+                if delta == 0:
+                    break
+            new_base = set()
             for word in base:
                 mutation_indexes = choices(
-                    range(self.mutations),
+                    mutations_idxs,
                     weights=self.weights,
                     k=randint(*mutations_range))
                 for i in mutation_indexes:
                     word = self.mutations[i](word)
                     if binary_func(word):
                         return word
-                new_base.append(word)
+                new_base.add(word)
+            base = new_base
     
     def cast_population(
         self,
@@ -75,7 +83,7 @@ class GeneticFuzzer:
         binary_func: Callable,
         num_epochs: int = 30,
         min_iters: int = 20,
-        mutations_range: List[int] = [1, 2]) -> List[str]:
+        mutations_range: List[int] = [1, 2]) -> Set[str]:
         """Selecting strings that match a binary function
 
         Args:
@@ -88,17 +96,23 @@ class GeneticFuzzer:
         Returns:
             List[str]: mutation results.
         """
-        self.vocab = vocab
         result = set()
-        base = parents
-        for _ in num_epochs:
+        self.vocab = vocab
+        base = deepcopy(parents)
+        mutations_idxs = range(len(self.mutations))
+
+        for _ in range(num_epochs):
             delta = min_iters - len(base)
-            if delta > 0:
-                base += sample(base, delta)
-            new_base = parents
+            for parent in parents:
+                if parent not in base:
+                    base.add(parent)
+                    delta -= 1
+                if delta == 0:
+                    break
+            new_base = set()
             for word in base:
                 mutation_indexes = choices(
-                    range(self.mutations),
+                    mutations_idxs,
                     weights=self.weights,
                     k=randint(*mutations_range))
                 for i in mutation_indexes:
@@ -107,7 +121,8 @@ class GeneticFuzzer:
                         result.add(word)
                         self.weights[i] += 0.1
                         self.weights = softmax(self.weights)
-                new_base.append(word)
+                new_base.add(word)
+            base = new_base
         return result
         
     def cross_over(
@@ -125,14 +140,14 @@ class GeneticFuzzer:
 
         Returns:
             Tuple[str, str]: result.
-        """        
+        """
         num_chars = min([len(string_1), len(string_2), randint(*chars_range)])
         offset_1 = randint(0, len(string_1) - num_chars)
         offset_2 = randint(0, len(string_2) - num_chars)
         result_1 = string_1[:offset_1] + string_2[offset_2:offset_2 + num_chars] + \
-            string_1[offset_1 + num_chars]
+            string_1[offset_1 + num_chars:]
         result_2 = string_2[:offset_2] + string_1[offset_1:offset_1 + num_chars] + \
-            string_2[offset_2 + num_chars]
+            string_2[offset_2 + num_chars:]
         return result_1, result_2
     
     def append(self, string: str) -> str:
@@ -142,7 +157,9 @@ class GeneticFuzzer:
     
     def insert(self, string: str) -> str:     
         sub = choice(self.vocab)
-        result = ''.join(list(string).insert(randint(0, len(string) - 1), sub))
+        new_string = list(string)
+        new_string.insert(randint(0, len(string)), sub)
+        result = ''.join(new_string)
         return result
     
     def delete(self, string: str, del_range: List[int] = [1, 3]) -> str:
@@ -154,7 +171,9 @@ class GeneticFuzzer:
 
         Returns:
             str: result.
-        """        
+        """
+        if len(string) == 0:
+            return string
         offset = randint(0, len(string) - 1)
         result = string[:offset] + string[offset + randint(*del_range):]
         return result
@@ -174,7 +193,9 @@ class GeneticFuzzer:
         Returns:
             str: result.
         """
-        chars_num = randint(*chars_range) 
+        if len(string) == 0:
+            return string
+        chars_num = min(randint(*chars_range), len(string)) 
         offset = randint(0, len(string) - chars_num)
         core = string[offset:offset + chars_num]
         result = string[:offset] + core * randint(*rep_range) + string[offset + chars_num:]
@@ -193,6 +214,8 @@ class GeneticFuzzer:
         Returns:
             str: result.
         """
+        if len(string) == 0:
+            return string
         chars_num = min(len(string), randint(*chars_range))
         offset = randint(0, len(string) - chars_num)
         core = string[offset:offset + chars_num]
@@ -200,8 +223,7 @@ class GeneticFuzzer:
         return result
     
     def cyclic_shift(
-        self,
-        string: str,
+        self, string: str,
         chars_range: List[int] = [1, 3]) -> str:
         """Cyclic shift of random substring
 
@@ -210,9 +232,14 @@ class GeneticFuzzer:
             chars_range (List[int], optional): defines amount of chars to shift. Defaults to [1, 3].
         Returns:
             str: result.
-        """        
-        chars_num = min(len(string), randint(*chars_range))
-        offset = randint(0, len(string) - chars_num)
-        core = string[offset:offset + chars_num]
-        result = string[:offset] + core[-1] + core[:-1] + string[offset + chars_num:]
-        return result
+        """
+        if len(string) == 0:
+            return string
+        d = min(len(string) - 1, randint(*chars_range))
+        if randint(0, 1):
+            first = string[0:d]
+            second = string[d:]
+        else:
+            first = string[0:len(string)-d]
+            second = string[len(string)-d:]
+        return second + first

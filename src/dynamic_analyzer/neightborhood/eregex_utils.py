@@ -187,7 +187,7 @@ def get_regex_first_k(
             for part in range(k):
                 e, s = get_regex_first_k(regex.value, part)
                 if part != 0 and len(e) > 0:
-                    for i in range(1, k // part):
+                    for i in range(1, k // part + 1):
                         mod = k - i * part
                         if mod == 0:
                             update_storage(exact, product_storage(e, i, regex))
@@ -213,15 +213,21 @@ def open_regex(regex: Regex, rec_limit: int = 1) -> Iterator[str]:
                 yield child
         regex.substitute(None)
     elif isinstance(regex, ConcatenationRegex):
-        for first_child in open_regex(regex.value[0], rec_limit):
-            for last_child in open_regex(ConcatenationRegex(regex.value[1:]), rec_limit):
-                regex.substitute(first_child + last_child)
-                yield first_child + last_child
+        if len(regex.value) == 1:
+            for first_child in open_regex(regex.value[0], rec_limit):
+                regex.substitute(first_child)
+                yield first_child
+        else:
+            for first_child in open_regex(regex.value[0], rec_limit):
+                for last_child in open_regex(ConcatenationRegex(regex.value[1:]), rec_limit):
+                    regex.substitute(first_child + last_child)
+                    yield first_child + last_child
         regex.substitute(None)
     elif isinstance(regex, StarRegex):
         values = list(set(v for v in open_regex(regex.value, rec_limit)))
         for limit in range(rec_limit):
-            for permutation in product(values, limit):
+            for permutation in product(values, repeat=limit):
+                permutation = "".join(permutation)
                 regex.substitute(permutation)
                 yield permutation
     else:
@@ -253,10 +259,16 @@ def reopen_regex(
                     regex.substitute(child)
                     yield child
     elif isinstance(regex, ConcatenationRegex):
-        for first_child in reopen_regex(regex.value[0], memory, rec_limit):
-            for last_child in reopen_regex(ConcatenationRegex(regex.value[1:]), memory, rec_limit):
-                regex.substitute(first_child + last_child)
-                yield first_child + last_child
+        if len(regex.value) == 1:
+            for first_child in reopen_regex(regex.value[0], memory, rec_limit):
+                regex.substitute(first_child)
+                yield first_child
+        else:
+            for first_child in reopen_regex(regex.value[0], memory, rec_limit):
+                for last_child in reopen_regex(ConcatenationRegex(regex.value[1:]), memory, rec_limit):
+                    regex.substitute(first_child + last_child)
+                    yield first_child + last_child
+        regex.substitute(None)
     elif isinstance(regex, StarRegex):
         if regex in memory:
             mem_value = memory[regex]
@@ -270,7 +282,8 @@ def reopen_regex(
         else:
             values = list(set(v for v in reopen_regex(regex.value, rec_limit)))
             for limit in range(rec_limit):
-                for permutation in product(values, limit):
+                for permutation in product(values, repeat=limit):
+                    permutation = "".join(permutation)
                     regex.substitute(permutation)
                     yield permutation
     else:

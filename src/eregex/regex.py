@@ -10,6 +10,9 @@ class BaseRegex(Regex):
     def __str__(self) -> str:
         if self.substitution is not None: return self.substitution
         return "(" + self.value + ")" if self.group else self.value
+
+    def delete_substitution(self):
+        self.substitute(None)
     
     def plot(
         self,
@@ -40,6 +43,14 @@ class BackrefRegex(Regex):
     def __str__(self) -> str:
         if self.substitution is not None: return self.substitution
         return "(" + self.value + ")" if self.group else self.value
+    
+    def substitute(self, word: str | None):
+        super().substitute(word)
+        self.regex_value.substitute(word)
+
+    def delete_substitution(self):
+        self.substitute(None)
+        self.regex_value.delete_substitution()
     
     def __len__(self) -> int:
         return 1
@@ -82,12 +93,25 @@ class ConcatenationRegex(NodeRegex):
     def flat_len(self) -> int:
         return len(self.value)
     
-    def sub(self, start: int = 0, end: Optional[int] = None) -> ConcatenationRegex:
-        return ConcatenationRegex(self.value[start:end])
+    def sub(self, start: int = 0, end: Optional[int] = None) -> Regex:
+        if start < len(self.value):
+            return ConcatenationRegex(self.value[start:end])
+        else:
+            return BaseRegex("")
 
     def unpack(self):
         while self.flat_len() == 1 and isinstance(self.value[0], ConcatenationRegex):
             self.value = self.value[0].value
+
+    def delete_group(self):
+        self.group = False
+        for value in self.value:
+            value.delete_group()
+
+    def delete_substitution(self):
+        self.substitute(None)
+        for value in self.value:
+            value.delete_substitution()
 
     def plot(
         self,
@@ -119,6 +143,16 @@ class AlternativeRegex(NodeRegex):
 
     def unpack(self):
         pass
+
+    def delete_group(self):
+        self.group = False
+        for value in self.value:
+            value.delete_group()
+
+    def delete_substitution(self):
+        self.substitute(None)
+        for value in self.value:
+            value.delete_substitution()
 
     def plot(
         self,
@@ -153,6 +187,14 @@ class StarRegex(NodeRegex):
 
     def unpack(self):
         pass
+
+    def delete_group(self):
+        self.group = False
+        self.value.delete_group()
+
+    def delete_substitution(self):
+        self.substitute(None)
+        self.value.delete_substitution()
 
     def plot(
         self,

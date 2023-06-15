@@ -9,7 +9,7 @@ from graphviz import Digraph
 
 class Regex(ABC):
     def __init__(self, value: Any, group: bool = False):
-        assert value, "empty regular expression"
+        # assert value, "empty regular expression"
         self.value = value
         self.name  = ""
         self.group = group
@@ -19,6 +19,7 @@ class Regex(ABC):
         return re.match("^" + str(self) + "$", word)
     
     def substitute(self, word: Optional[str]) -> None:
+        # print(f"substit to {self}: {word}")
         self.substitution = word
 
     def delete_group(self):
@@ -30,8 +31,9 @@ class Regex(ABC):
     def __len__(self) -> int:
         return len(self.value)
     
+    @abstractmethod
     def delete_substitution(self):
-        self.substitute(None)
+        pass
 
     @abstractmethod
     def __str__(self) -> str:
@@ -58,12 +60,3 @@ class NodeRegex(Regex):
     @abstractmethod
     def unpack(self):
         pass
-
-    def delete_group(self):
-        for value in self.value:
-            value.delete_group()
-
-    def delete_substitution(self):
-        self.substitute(None)
-        for value in self.value:
-            value.delete_substitution()

@@ -11,30 +11,9 @@ from src.eregex.parser import ERegexParser
 from src.dynamic_analyzer.ambiguity_analyzer import AmbiguityAnalyzer
 from src.wrappers.regex_matcher import RegexMatcher
 
-from src.eregex.abstract_regex import Regex
-from src.eregex.regex import (BaseRegex, BackrefRegex, ConcatenationRegex)
-from src.multipattern.repattern import REPattern, REVariable
 
-
-def regex_to_pattern(regex: Regex) -> Optional[REPattern]:
-    if isinstance(regex, BaseRegex):
-        return REPattern([regex.value])
-    elif isinstance(regex, ConcatenationRegex):
-        pattern = []
-        vars = {}
-        for elem in regex.value:
-            if isinstance(elem, BaseRegex):
-                pattern.append(str(elem))
-            elif isinstance(elem, BackrefRegex):
-                pattern.append(vars[elem.regex_value])
-            else:
-                pattern.append(REVariable(elem))
-                vars[elem] = pattern[-1]
-        return REPattern(pattern)
-
-
-def log(ambs: Dict[int, REMultipattern]):
-    if len(ambs) == 0:
+def log(ambs: Optional[Dict[int, REMultipattern]] = None):
+    if ambs is None or len(ambs) == 0:
         print("No ambiguity found")
         return
     for k, v in ambs.items():
@@ -48,9 +27,10 @@ def main(
     timeout: float = 0.5,
     first: bool = True,
     pattern: bool = False,
+    genetic: bool = False,
+    rec_limit: int = 3,
     visualize: bool = False):
 
-    genetic = GeneticFuzzer()
     matcher = RegexMatcher()
     analyzer = StaticAnalyzer()
     ambiguity_analyzer = AmbiguityAnalyzer()
@@ -58,17 +38,36 @@ def main(
     value = ERegexParser(value).parse()
     if len(visualize) > 0:
         value.plot().render(visualize, format="png")
+    # TODO: try...except
+    # try:
     if pattern:
-        fuzzer = REPatternFuzzer(genetic, matcher, analyzer, ambiguity_analyzer)
-        value = regex_to_pattern(value)
-        assert value is not None, "incorrect pattern"
+        fuzzer = REPatternFuzzer(GeneticFuzzer(), matcher, analyzer, ambiguity_analyzer)
+        log(fuzzer.run(
+            value,
+            max_radius=radius,
+            timeout=timeout,
+            genetic=genetic,
+            rec_limit=rec_limit,
+            first=first))
     else:
-        fuzzer = ERegexFuzzer(genetic, matcher, analyzer, ambiguity_analyzer)
-    log(fuzzer.run(value, radius, timeout, first))
-
+        fuzzer = ERegexFuzzer(matcher, analyzer, ambiguity_analyzer)
+        # log(fuzzer.run(
+        #     value,
+        #     max_radius=radius,
+        #     timeout=timeout,
+        #     rec_limit=rec_limit,
+        #     first=first))
+    # except:
+    #     log()
 
 if __name__ == "__main__":
+    # i = pump_suffix("ab", "baba")
+    # print("ab"[:i], "ab"[i:])
     base_examples = ["a(a*)\\1", "bcaa(c*)cccc\\1", "a(a*)(b|a)*a\\1"]
+    from src.dynamic_analyzer.neightborhood.pattern_utils import get_regex_first_k
+
+    regex = ERegexParser("(ab)*").parse()
+    print(get_regex_first_k(regex, 5))
 
     parser = argparse.ArgumentParser(
         description='''Dynamic complexity analysis of regular expressions and re-patterns''')
@@ -82,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-t', '--timeout',
         action='store',
-        default=0.5,
+        default=2,
         type=float,
         help='timeout for matching')
     parser.add_argument(
@@ -96,6 +95,15 @@ if __name__ == "__main__":
         action='store_true',
         help='re-pattern mode')
     parser.add_argument(
+        '-g', '--genetic',
+        action='store_true',
+        help='whether to use genetic algorithms for pattern analysis')
+    parser.add_argument(
+        '-d', '--depth',
+        default=3,
+        type=int,
+        help='limit for recursive opening of regexes')
+    parser.add_argument(
         '-f', '--first',
         action='store_true',
         help='whether to show first vulnerability')
@@ -105,18 +113,29 @@ if __name__ == "__main__":
         value=args.value,
         pattern=args.pattern,
         timeout=args.timeout,
+        rec_limit=args.depth,
+        genetic=args.genetic,
         radius=args.radius,
         first=args.first,
         visualize=args.visualize)
 
-    # module testing
-    # parser = ERegexParser('((ss)*)\\1\\2b')
-    # res = parser.parse()
-    # res.plot().render(f"visualization/regex.gv", format="png").replace('\\', '/')
-    # print([str(v.regex_value) for v in res.value if isinstance(v, BackrefRegex)])
+    # "(ba)*b(ab)*"
+    # "(a*)aaaa\\1"
+    # "((ba)*)aaa(ab)*a\\1"
+    # "(a*b*)aaaaab*b\\1"
 
-    # analyzer = StaticAnalyzer()
-    # print(analyzer.analyze('(a*)*'))
+    import numpy as np
+    matcher = RegexMatcher()
+    regex = '(a*b*)aaaaab*b\\1'
+    attack = {'prefix': "", 'pump': 'aaaaabbb', 'suffix': 'h'}
+    ts = []
+    ls = []
+    for n in range(1, 100, 10):
+        word = attack['prefix'] + attack['pump'] * n + attack['suffix']
+        ls.append(len(word))
+        ts.append(matcher.match_word(word, "(" + regex + ")", timeout=2))
     
-    # matcher = RegexMatcher()
-    # print(matcher.match_group([["a", "1"], "b"], {"1": [0, 30, 5]}, "a*a*"))
+    word = attack['prefix'] + attack['pump'] * 500 + attack['suffix']
+    print((ts[-1] / ls[-1]) / (np.mean(ts) / np.mean(ls)))
+
+    

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
 from src.eregex.parser import ERegexParser
 from src.eregex.abstract_regex import Regex
@@ -36,12 +36,12 @@ class REPattern(Pattern):
     
     def __str__(self) -> str:
         string, vars = self.shape(return_vars=True)
-        return string + ", " + ", ".join([f"{v} = {str(k.regex)}" for k, v in vars])
+        return "".join(string) + ", " + ", ".join([f"{v} = {str(k.regex)}" for k, v in vars.items()])
 
     def sub(self, start: int = 0, end: Optional[int] = None) -> REPattern:
         return REPattern(self.value[start:end])
 
-    def shape(self, var_id: str = "x", return_vars: bool = False) -> List[str]:
+    def shape(self, var_id: str = "X", return_vars: bool = False) -> Any:
         result = []
         vars = {}
         i = 1
@@ -49,7 +49,7 @@ class REPattern(Pattern):
             if isinstance(value, REVariable):
                 prev_i = vars.get(value)
                 if prev_i is None:
-                    vars[value] = var_id + str(i)
+                    vars[value] = "[" + var_id + str(i) + "]"
                     result.append(vars[value])
                     i += 1
                 else:
@@ -57,12 +57,12 @@ class REPattern(Pattern):
             else:
                 result.append(value)
         if return_vars:
-            result, vars
+            return result, vars
         return result
 
-    def slice_len(self, start: int = 0) -> int:
+    def slice_len(self, start: int = 0, end: Optional[int] = None) -> int:
         length = 0
-        for value in self.value[start:]:
+        for value in self.value[start:end]:
             l = len(value)
             length += l if l > 0 else 1
         return length
@@ -81,8 +81,9 @@ class REPattern(Pattern):
             if isinstance(elem, str):
                 result += elem
             elif elem in vars:
+                print(elem.regex)
                 result += f"\\{vars[elem]}"
             else:
-                vars[elem] = i
+                vars[elem] = i + 1
                 result += str(elem.regex)
         return result

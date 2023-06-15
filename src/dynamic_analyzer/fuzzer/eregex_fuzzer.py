@@ -213,8 +213,8 @@ class ERegexFuzzer(Fuzzer):
         start: int,
         end: int,
         radius_range: Iterable[int],
-        top_k: int = 10) -> Optional[Dict[str, Set[Path]]]:
-        if self.static_analyzer(case.sub(start, end + 1).get_regular_str()) == NO_AMBIGUOUS:
+        top_k: int = 5) -> Optional[Dict[str, Set[Path]]]:
+        if self.static_analyzer.analyze(case.sub(start, end + 1).get_regular_str()) == NO_AMBIGUOUS:
             return
         intersections = {}
         for k in radius_range:
@@ -226,14 +226,14 @@ class ERegexFuzzer(Fuzzer):
             if len(cap) == 0:
                 return
             if end - start > 1:
-                for n in range(1, k // 2):
+                for n in range(0, k // 2):
                     trans = self._get_neighborhood(start + 1, case, k, n)
-                    cap = intersect_storages(cap, trans)
-                    if len(cap) == 0:
+                    trans_cap = intersect_storages(cap, trans)
+                    if len(trans_cap) == 0:
                         return
-            if len(intersections) < top_k:
-                update_storage(intersections, cap)
-        return sorted(intersections)
+                    if len(intersections) < top_k:
+                        update_storage(intersections, trans_cap)
+        return intersections
     
     def pump(
         self,
@@ -266,13 +266,14 @@ class ERegexFuzzer(Fuzzer):
             for var, sub in trans_subs.items():
                 var.substitute(sub)
             
-            first_sub = target_subs[0]
+            first_sub =  target_subs[target_vars[0]]
             f_idx = first_sub.find(inter)
             target_vars[0].substitute(first_sub[:f_idx] + first_sub[f_idx:] * n)
 
-            last_sub = target_subs[1]
-            l_idx = last_sub.find(inter) + len(inter)
-            target_vars[1].substitute(last_sub[:l_idx] * n + last_sub[l_idx:])
+            if target_vars[-1] != target_vars[0]:
+                last_sub =  target_subs[target_vars[-1]]
+                l_idx = last_sub.find(inter) + len(inter)
+                target_vars[1].substitute(last_sub[:l_idx] * n + last_sub[l_idx:])
 
             core = first_sub[:f_idx] + inter * (2 * n)
             sub_regex = case.sub(end=start)
@@ -289,7 +290,7 @@ class ERegexFuzzer(Fuzzer):
             
             # first var
             vars = {}
-            first_sub = target_subs[0]
+            first_sub = target_subs[target_vars[0]]
             f_idx = first_sub.find(inter)
             if isinstance(target_vars[0], BackrefRegex):
                 f_name = "[" + target_vars[0].value.replace("\\", BASE_ID) + "]"
@@ -299,17 +300,18 @@ class ERegexFuzzer(Fuzzer):
             vars[f_name] = first_sub[:f_idx] + f"({first_sub[f_idx:]})*"
 
             # last var
-            last_sub = target_subs[1]
-            l_idx = last_sub.find(inter) + len(inter)
-            if isinstance(target_vars[0], BackrefRegex):
-                l_name = "[" + target_vars[0].value.replace("\\", BASE_ID)  + "]"
-            else:
-                l_name = "[" + PUMP_ID + next(self.key_generator)  + "]"
-            target_vars[1].substitute(l_name)
-            vars[l_name] = f"({last_sub[:l_idx]})*" + last_sub[l_idx:]
+            if target_vars[-1] != target_vars[0]:
+                last_sub = target_subs[target_vars[-1]]
+                l_idx = last_sub.find(inter) + len(inter)
+                if isinstance(target_vars[0], BackrefRegex):
+                    l_name = "[" + target_vars[0].value.replace("\\", BASE_ID)  + "]"
+                else:
+                    l_name = "[" + PUMP_ID + next(self.key_generator)  + "]"
+                target_vars[1].substitute(l_name)
+                vars[l_name] = f"({last_sub[:l_idx]})*" + last_sub[l_idx:]
 
             # core
-            c_name = "[" + id + next(self.key_generator)  + "]"
+            c_name = "[" + PUMP_ID + next(self.key_generator)  + "]"
             vars[c_name] = first_sub[:f_idx] + f"({inter})*"
             attack = next(open_regex(case.sub(end=start))) + c_name + \
                 next(open_regex(case.sub(start=end + 1))) + postfix
@@ -391,11 +393,11 @@ class ERegexFuzzer(Fuzzer):
         first: bool = False) -> Dict[int, REMultipattern]:
         prevs = []
         pumping_groups = {}
-        if self.static_analyzer(ext_to_classic(case)) == NO_AMBIGUOUS:
+        if self.static_analyzer.analyze(ext_to_classic(case)) == NO_AMBIGUOUS:
             return pumping_groups
         for i, elem in enumerate(case.value):
-            if type(elem) is Regex:
-                if self.static_analyzer(ext_to_classic(case.sub(end=i + 1))) == NO_AMBIGUOUS:
+            if isinstance(elem, Regex):
+                if self.static_analyzer.analyze(ext_to_classic(case.sub(end=i + 1))) == NO_AMBIGUOUS:
                     continue
                 if len(prevs) != 0:
                     for prev in prevs:
@@ -552,7 +554,7 @@ class ERegexFuzzer(Fuzzer):
                 for value in regex.value:
                     if check_backref_inside(value):
                         if len(static_regex) > 0:
-                            status = self.static_analyzer(static_regex)
+                            status = self.static_analyzer.analyze(static_regex)
                             if status > NO_AMBIGUOUS:
                                 attack_pattern = format_static(
                                     main_regex, regex, static_regex, next(self.key_generator))
@@ -577,7 +579,7 @@ class ERegexFuzzer(Fuzzer):
                 for value in regex.value:
                     if not check_backref_inside(value):
                         static_regex += "|" + str(value)
-                status = self.static_analyzer(static_regex)
+                status = self.static_analyzer.analyze(static_regex)
                 if status > NO_AMBIGUOUS:
                     attack_pattern = format_static(
                         main_regex, regex, static_regex, next(self.key_generator))

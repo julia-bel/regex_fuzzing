@@ -1,5 +1,4 @@
-import re
-
+from json import loads
 from subprocess import PIPE, Popen, TimeoutExpired
 from typing import List, Optional, Dict, Iterator, Tuple
 
@@ -21,14 +20,24 @@ class RegexMatcher:
             proc.kill()
             print(f"Timeout: {timeout} in Regex Matcher")
 
-    def parse_result(self, logs: str) -> float:
-        return float(re.search(r"\d+\.\d+", logs).group(0))
+    def get_time(self, logs: str) -> float:
+        return loads(logs)["time"]
+    
+    def get_match(self, logs: str) -> bool:
+        return loads(logs)["matched"]
+    
+    def match(self, word: str, regex: str, timeout: float = 0.5) -> bool:
+        proc = Popen([JS_MATCHER_PATH, word, regex], stdout=PIPE)
+        outs = self.execute(proc, timeout)
+        if outs is not None:
+            return self.get_match(outs.decode(self.encoding))
+        return False
 
     def match_word(self, word: str, regex: str, timeout: float = 0.5) -> float:
         proc = Popen([JS_MATCHER_PATH, word, regex], stdout=PIPE)
         outs = self.execute(proc, timeout)
         if outs is not None:
-            return self.parse_result(outs.decode(self.encoding))
+            return self.get_time(outs.decode(self.encoding))
         return timeout
 
     def match_group(

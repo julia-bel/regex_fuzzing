@@ -138,7 +138,7 @@ class REPatternFuzzer(Fuzzer):
         for i in range(len(w1), 0, -1):
             count = len(overlap)
             flag = True
-            if not re.match("^" + regex + "$", w1[:i] * 2 + w1[i:]):
+            if not self.matcher.match(w1[:i] * 2 + w1[i:], regex):
                 continue
             for n in range(2, iter_limit):
                 pump_w1 = w1[:i] * n + w1[i:]
@@ -164,7 +164,7 @@ class REPatternFuzzer(Fuzzer):
         for i in range(len(w1)):
             count = len(overlap)
             flag = True
-            if not re.match("^" + regex + "$", w1[:i] + w1[i:] * 2):
+            if not self.matcher.match(w1[:i] + w1[i:] * 2, regex):
                 continue
             for n in range(2, iter_limit):
                 pump_w1 = w1[:i] + w1[i:] * n
@@ -205,7 +205,7 @@ class REPatternFuzzer(Fuzzer):
         num_epochs: int = 10) -> Optional[Tuple[str, str]]:
 
         def fitness_function(x, regex: str, search_prefix: bool = False) -> bool:
-            if not re.match(regex, x):
+            if not match(x, regex):
                 return False
             if search_prefix:
                 i = self._pump_prefix(regex, x, inter, iter_limit)
@@ -213,6 +213,7 @@ class REPatternFuzzer(Fuzzer):
                 i = self._pump_suffix(regex, x, inter, iter_limit)
             return i is not None
         
+        match = self.matcher.match
         regex = var.regex
         regex_str = str(regex)
         word = self.genetic_fuzzer.cast(

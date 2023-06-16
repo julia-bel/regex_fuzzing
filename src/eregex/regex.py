@@ -70,7 +70,7 @@ class BackrefRegex(Regex):
         return graph
     
     def reverse(self):
-        pass
+        return self.regex_value.reverse()
 
 
 class ConcatenationRegex(NodeRegex):

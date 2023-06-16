@@ -7,9 +7,7 @@ from src.eregex.regex import (
 
 
 def open_regex(regex: Regex, rec_limit: int = 1) -> Iterator[str]:
-    print(f"open: {regex}")
     if regex.substitution is not None:
-        print("sub")
         yield regex.substitution
     elif isinstance(regex, BaseRegex):
         regex.substitute(str(regex))

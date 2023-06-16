@@ -17,7 +17,7 @@ def log(ambs: Optional[Dict[int, REMultipattern]] = None):
         print("No ambiguity found")
         return
     for k, v in ambs.items():
-        print("Found: " + "polynomial" if k == POLY_AMBIGUOUS else "exponential")
+        print("Found: " + ("polynomial" if k == POLY_AMBIGUOUS else "exponential"))
         print("Pumping pattern:\n" + str(v))
 
 
@@ -51,91 +51,97 @@ def main(
             first=first))
     else:
         fuzzer = ERegexFuzzer(matcher, analyzer, ambiguity_analyzer)
-        # log(fuzzer.run(
-        #     value,
-        #     max_radius=radius,
-        #     timeout=timeout,
-        #     rec_limit=rec_limit,
-        #     first=first))
+        log(fuzzer.run(
+            value,
+            max_radius=radius,
+            timeout=timeout,
+            rec_limit=rec_limit,
+            first=first))
     # except:
     #     log()
 
 if __name__ == "__main__":
     # i = pump_suffix("ab", "baba")
     # print("ab"[:i], "ab"[i:])
-    base_examples = ["a(a*)\\1", "bcaa(c*)cccc\\1", "a(a*)(b|a)*a\\1"]
-    from src.dynamic_analyzer.neightborhood.pattern_utils import get_regex_first_k
 
-    regex = ERegexParser("(ab)*").parse()
-    print(get_regex_first_k(regex, 5))
+    from src.dynamic_analyzer.neightborhood.eregex_utils import get_regex_first_k, get_zero_neighborhood
+    regex = ERegexParser("a*").parse()
 
-    parser = argparse.ArgumentParser(
-        description='''Dynamic complexity analysis of regular expressions and re-patterns''')
-    parser.add_argument('value', help='value to analyze')
-    parser.add_argument(
-        '-v', '--visualize',
-        action='store',
-        default='',
-        type=str,
-        help='path to file for structure visualization')
-    parser.add_argument(
-        '-t', '--timeout',
-        action='store',
-        default=2,
-        type=float,
-        help='timeout for matching')
-    parser.add_argument(
-        '-r', '--radius',
-        action='store',
-        type=int,
-        default=10,
-        help='max radius for neighborhood extension')
-    parser.add_argument(
-        '-p', '--pattern',
-        action='store_true',
-        help='re-pattern mode')
-    parser.add_argument(
-        '-g', '--genetic',
-        action='store_true',
-        help='whether to use genetic algorithms for pattern analysis')
-    parser.add_argument(
-        '-d', '--depth',
-        default=3,
-        type=int,
-        help='limit for recursive opening of regexes')
-    parser.add_argument(
-        '-f', '--first',
-        action='store_true',
-        help='whether to show first vulnerability')
-    args = parser.parse_args()
+    res = get_regex_first_k(regex, 2)
+    # for n, v in res.items():
+    #     for p in v:
+    #         print("-" * 20)
+    #         for i, ii  in p.value.items():
+    #             print(type(i))
+    #             print(f"{i}: {ii}")
+    print("RESULT")
+    print(res)
+    # for a in res:
+    #     prev = None
+    #     for p in res['a']:
+    #         print(p == prev)
+    #         print(p.value)
+    #         prev = p
+    #         # print(p.__hash__())
+    #         # print(p.__hash__())
+
+    # base_examples = ["a(a*)\\1", "bcaa(c*)cccc\\1", "a(a*)(b|a)*a\\1"]
+    # from src.dynamic_analyzer.neightborhood.pattern_utils import get_regex_first_k
+
+    # regex = ERegexParser("(ab)*").parse()
+    # print(get_regex_first_k(regex, 5))
+
+    # parser = argparse.ArgumentParser(
+    #     description='''Dynamic complexity analysis of regular expressions and re-patterns''')
+    # parser.add_argument('value', help='value to analyze')
+    # parser.add_argument(
+    #     '-v', '--visualize',
+    #     action='store',
+    #     default='',
+    #     type=str,
+    #     help='path to file for structure visualization')
+    # parser.add_argument(
+    #     '-t', '--timeout',
+    #     action='store',
+    #     default=2,
+    #     type=float,
+    #     help='timeout for matching')
+    # parser.add_argument(
+    #     '-r', '--radius',
+    #     action='store',
+    #     type=int,
+    #     default=10,
+    #     help='max radius for neighborhood extension')
+    # parser.add_argument(
+    #     '-p', '--pattern',
+    #     action='store_true',
+    #     help='re-pattern mode')
+    # parser.add_argument(
+    #     '-g', '--genetic',
+    #     action='store_true',
+    #     help='whether to use genetic algorithms for pattern analysis')
+    # parser.add_argument(
+    #     '-d', '--depth',
+    #     default=3,
+    #     type=int,
+    #     help='limit for recursive opening of regexes')
+    # parser.add_argument(
+    #     '-f', '--first',
+    #     action='store_true',
+    #     help='whether to show first vulnerability')
+    # args = parser.parse_args()
     
-    main(
-        value=args.value,
-        pattern=args.pattern,
-        timeout=args.timeout,
-        rec_limit=args.depth,
-        genetic=args.genetic,
-        radius=args.radius,
-        first=args.first,
-        visualize=args.visualize)
+    # main(
+    #     value=args.value,
+    #     pattern=args.pattern,
+    #     timeout=args.timeout,
+    #     rec_limit=args.depth,
+    #     genetic=args.genetic,
+    #     radius=args.radius,
+    #     first=args.first,
+    #     visualize=args.visualize)
 
     # "(ba)*b(ab)*"
     # "(a*)aaaa\\1"
     # "((ba)*)aaa(ab)*a\\1"
     # "(a*b*)aaaaab*b\\1"
-
-    import numpy as np
-    matcher = RegexMatcher()
-    regex = '(a*b*)aaaaab*b\\1'
-    attack = {'prefix': "", 'pump': 'aaaaabbb', 'suffix': 'h'}
-    ts = []
-    ls = []
-    for n in range(1, 100, 10):
-        word = attack['prefix'] + attack['pump'] * n + attack['suffix']
-        ls.append(len(word))
-        ts.append(matcher.match_word(word, "(" + regex + ")", timeout=2))
-    
-    word = attack['prefix'] + attack['pump'] * 500 + attack['suffix']
-    print((ts[-1] / ls[-1]) / (np.mean(ts) / np.mean(ls)))
-
-    

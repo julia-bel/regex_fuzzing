@@ -22,7 +22,7 @@ class StaticAnalyzer:
             return outs
         except TimeoutExpired:
             proc.kill()
-            print(f"Timeout: {timeout} in Static Analyzer")
+            # print(f"Timeout: {timeout} in Static Analyzer")
 
     def parse_result(self, logs: str) -> int:
         if re.search("(E|e)xponential", logs):

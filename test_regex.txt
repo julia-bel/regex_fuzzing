@@ -1,5 +1,5 @@
 (a|a)*
-(a*)*bcda*aa*(c|d|a)*
+(a*)aa(\1)*dabaa
 ((aaa)*)*bsma(d|a)
 msn((ba)*)aaa(ab)*a\1
 ddddab(a*b*)aaaaab*b\1

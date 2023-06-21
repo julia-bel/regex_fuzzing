@@ -79,26 +79,26 @@ def main(
             print()
     else:
         sample = ERegexParser(value).parse()
-        # try:
-        if pattern:
-            log(fuzzer.run(
-                sample,
-                max_radius=radius,
-                timeout=timeout,
-                genetic=genetic,
-                rec_limit=rec_limit,
-                visualize=visualize,
-                first=first))
-        else:
-            log(fuzzer.run(
-                sample,
-                max_radius=radius,
-                timeout=timeout,
-                rec_limit=rec_limit,
-                visualize=visualize,
-                first=first))
-        # except:
-        #     log()
+        try:
+            if pattern:
+                log(fuzzer.run(
+                    sample,
+                    max_radius=radius,
+                    timeout=timeout,
+                    genetic=genetic,
+                    rec_limit=rec_limit,
+                    visualize=visualize,
+                    first=first))
+            else:
+                log(fuzzer.run(
+                    sample,
+                    max_radius=radius,
+                    timeout=timeout,
+                    rec_limit=rec_limit,
+                    visualize=visualize,
+                    first=first))
+        except:
+            log()
 
 
 if __name__ == "__main__":

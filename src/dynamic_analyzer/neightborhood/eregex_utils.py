@@ -434,10 +434,7 @@ def get_n_neighborhood(start_regex: Regex, end_regex: Regex, n: int, k: int) -> 
         suffix, s_saffix = get_regex_first_k(end_regex, k - n)
         update_storage(prefix, s_prefix)
         update_storage(suffix, s_saffix)
-        if start_regex != end_regex:
-            neighborhood = concat_storeges(prefix, suffix)
-        else:
-            neighborhood = priority_concat_storeges(prefix, suffix)
+        neighborhood = priority_concat_storeges(prefix, suffix)
     else:  
         prefix, s_prefix = get_regex_last_k(start_regex, n)
         update_storage(prefix, s_prefix)

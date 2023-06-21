@@ -1,1 +1,1 @@
-X = Ambiguity.Thompson {(c|d|a)*}
+X = Ambiguity.Thompson {(a)*aa((a)*)*}

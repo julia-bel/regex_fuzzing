@@ -3,6 +3,7 @@ from typing import (
     Callable, Optional, Set, Iterable)
 from itertools import combinations
 import numpy as np
+import re
 
 from src.dynamic_analyzer.const import BASE_ID, PUMP_ID
 from src.const import (
@@ -259,7 +260,7 @@ class ERegexFuzzer(Fuzzer):
             if end - start > 1:
                 for n in range(0, k // 2):
                     trans = self._get_neighborhood(start + 1, case, k, n, is_var=False)
-                    trans_cap = {word: paths for word, paths in cap.items() if word in trans} # intersect_storages(cap, trans)
+                    trans_cap = {word: paths for word, paths in cap.items() if word in trans}
                     if len(trans_cap) == 0:
                         return
                     if len(intersections) < top_k:
@@ -348,7 +349,8 @@ class ERegexFuzzer(Fuzzer):
                 next(open_regex(case.sub(start=end + 1))) + postfix
             history = get_substitutions(case)
             case.delete_substitution()
-            return RECPattern(attack, vars, history)
+            if not all([re.sub("[^A-z]", "", pat.value) == "" for pat in vars.values()]):
+                return RECPattern(attack, vars, history)
   
         target_vars = [case.value[start], case.value[end]]
         trans_vars = [b for b in get_backrefs(case.sub(start, end + 1)) if b not in target_vars]
@@ -370,7 +372,9 @@ class ERegexFuzzer(Fuzzer):
                     word = format_word(inter, target_subs, trans_subs, n=2)
                     time = self.matcher.match_word(word, case.get_value_str(), timeout)
                     if time == timeout:
-                        return EXP_AMBIGUOUS, format_pattern(inter, target_subs, trans_subs)
+                        pattern = format_pattern(inter, target_subs, trans_subs)
+                        if pattern is not None:
+                            return EXP_AMBIGUOUS, pattern
                     score = time / len(word)
                     if score > max_score:
                         max_score = score
@@ -388,17 +392,19 @@ class ERegexFuzzer(Fuzzer):
                 str_case = case.get_value_str() 
             time = self.matcher.match_word(word, str_case, timeout)
             if time == timeout:
-                return EXP_AMBIGUOUS, format_pattern(*result)
+                pattern = format_pattern(*result)
+                if pattern is None:
+                    return EXP_AMBIGUOUS, pattern
+                return EXP_AMBIGUOUS, pattern
             lens.append(len(word))
             times.append(time)
         amb = self.ambiguity_analyzer.analyze(times, lens)
-        if visualize:
-            plot_dependance(
-                times, lens,
-                str_case + "\n" + \
-                format_pattern(*result).value)
-        if amb > NO_AMBIGUOUS:
-            return amb, format_pattern(*result)
+        pattern = format_pattern(*result)
+        if pattern is not None:
+            if visualize:
+                plot_dependance(times, lens, str_case + "\n" + pattern.value)
+            if amb > NO_AMBIGUOUS:
+                return amb, pattern
     
     def _run_substitution(
         self,
@@ -592,7 +598,7 @@ class ERegexFuzzer(Fuzzer):
                         return_flag = True
                         return []
                 # constructing substitutions          
-                cases = [] # [EMPTY]
+                cases = []
                 if check_group_inside(regex.value):
                     
                     cases.append(regex)

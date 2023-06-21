@@ -39,7 +39,6 @@ class ERegexParser:
                 add2parsed(curr_regex)
                 curr_regex = ""
                 parsed.append(self.parse())
-                print(parsed[-1])
                 self.capture_groups[str(id)] = parsed[-1]
             elif char == R_PAR:
                 self.closed_parentheses += 1

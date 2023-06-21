@@ -1,11 +1,18 @@
 from __future__ import annotations
-from typing import Dict
+from typing import Optional, Dict
+
+from src.eregex.regex import Regex
 
 
 class RECPattern:
-    def __init__(self, value: str, vars: Dict[str, RECPattern]):
+    def __init__(
+        self,
+        value: str,
+        vars: Optional[Dict[str, RECPattern]] = None,
+        history: Optional[Dict[Regex, str]] = None):
         self.value = value
-        self.vars = vars # self.simplify(value, vars)
+        self.vars = {} if vars is None else self.simplify(value, vars)
+        self.history = {} if history is None else history
 
     def simplify(self, value: str, vars: Dict[str, RECPattern]) -> Dict[str, RECPattern]:
         new_vars = {}
@@ -23,4 +30,7 @@ class RECPattern:
         return all_vars
 
     def __str__(self) -> str:
-        return self.value + ", " + ", ".join([f"{k} = {v}" for k, v in self.vars.items()])
+        result = self.value
+        if len(self.vars) > 0:
+            result += ", " + ", ".join([f"{k} = {v}" for k, v in self.vars.items()])
+        return result

@@ -6,12 +6,12 @@ import numpy as np
 
 from src.dynamic_analyzer.const import BASE_ID, PUMP_ID
 from src.const import (
-    EXP_AMBIGUOUS, NO_AMBIGUOUS, SUBSTITUTION, CUTTION)
+    EMPTY, EXP_AMBIGUOUS, NO_AMBIGUOUS, SUBSTITUTION, CUTTION)
 from src.dynamic_analyzer.utils import (
     get_generator, invert_mask, key_generator,
     check_regex_intersection, get_attack_postfix,
     format_static, get_backrefs, format_nssnf,
-    format_recattack, plot_dependance)
+    format_recattack)
 from src.dynamic_analyzer.neightborhood.eregex_utils import (
     open_regex, reopen_regex,
     get_n_neighborhood, get_zero_neighborhood,
@@ -34,9 +34,8 @@ class ERegexFuzzer(Fuzzer):
         self,
         regex: Regex,
         max_radius: int = 10,
-        timeout: float = 2,
+        timeout: float = 0.5,
         rec_limit: int = 3,
-        visualize: bool = False,
         first: bool = True) -> Dict[int, REMultipattern]:
         """Main method for regex analyzing
 
@@ -50,13 +49,14 @@ class ERegexFuzzer(Fuzzer):
             Dict[int, REMultipattern]: {ambiguity status: pumping multipattern}.
         """
         self.key_generator = key_generator()
+        print(f"BEFORE SIMPLIFIED {regex}")
         regex = self._simplify_regex(regex)
+        print(f"SIMPLIFIED {regex}")
         return self._process_regex(
             regex,
             max_radius=max_radius,
             timeout=timeout,
             first=first,
-            visualize=visualize,
             rec_limit=rec_limit)
 
     def _check_star_outside(self, target: Regex, source: Regex) -> bool:
@@ -94,6 +94,7 @@ class ERegexFuzzer(Fuzzer):
         backref_type = OUT if self._check_star_outside(backref, regex) else NO
         group_type = self._get_group_type(backref.regex_value, regex)
         subs_type = [OUT, NO]
+        print(f"subs type {subs_type}")
         if backref_type in subs_type and group_type in subs_type:
             return SUBSTITUTION
         return CUTTION
@@ -124,6 +125,16 @@ class ERegexFuzzer(Fuzzer):
                 pumping_groups[status] = pump
             else:
                 pumping_groups[status] = REMultipattern([pump])
+
+    # def _update_pumping_groups(
+    #     self,
+    #     pumping_groups: Dict[int, REMultipattern],
+    #     value: Tuple[int, RECPattern|REMultipattern]) -> None:
+    #     status, pump = value
+    #     if status in pumping_groups:
+    #         pumping_groups[status].append(pump)
+    #     else:
+    #         pumping_groups[status] = [pump]
 
     def _is_group(self, regex: Regex, source: Regex) -> bool:
         if not regex.group:
@@ -176,7 +187,7 @@ class ERegexFuzzer(Fuzzer):
             if isinstance(regex, BaseRegex) or isinstance(regex, BackrefRegex):
                 return False
             if isinstance(regex, StarRegex):
-                return simplify(regex.value, regex.value.group)
+                return simplify(regex.value, regex.value.group) # False # simplify(regex.value)
             if isinstance(regex, ConcatenationRegex):
                 if regex.group and not directly:
                     replacement = []
@@ -200,6 +211,7 @@ class ERegexFuzzer(Fuzzer):
             continue
         flatten(main_regex)
         ordered(main_regex)
+        main_regex.plot().render("visualization/image.gv", format="png")
         return main_regex
     
     def _get_neighborhood(
@@ -234,6 +246,7 @@ class ERegexFuzzer(Fuzzer):
         end: int,
         radius_range: Iterable[int],
         top_k: int = 5) -> Optional[Dict[str, Set[Path]]]:
+
         def is_one_variable(r1: Regex, r2: Regex) -> bool:
             if isinstance(r1, BackrefRegex):
                 if isinstance(r2, BackrefRegex) and r2.regex_value == r1.regex_value:
@@ -244,22 +257,33 @@ class ERegexFuzzer(Fuzzer):
                 return True
             return False
 
+        print(f"PUMP NEIGHBORHOOD {case.value[start]} to {case.value[end]}")
         intersections = {}
+        radius_range = range(1, 4)
         for k in radius_range:
             if not is_one_variable(case.value[start], case.value[end]):
                 x_1 = self._get_neighborhood(start, case, k)
                 x_2 = self._get_neighborhood(end, case, k)
+                # print(f"x1 : {[(k, str(vv.value)) for k, v in x_1.items() for vv in v]}")
+                # print(f"x2: {x_2}")
                 if len(x_1.keys()) == 0 or len(x_2.keys()) == 0:
                     break
                 cap = intersect_storages(x_1, x_2)
             else:
                 cap = self._get_neighborhood(start, case, k)
+            # print(f"regex {case.value[start]} k = {k}")
+            # print(f"CAP: {cap}")
             if len(cap) == 0:
                 return
             if end - start > 1:
                 for n in range(0, k // 2):
+                    # print("to TRANS")
                     trans = self._get_neighborhood(start + 1, case, k, n, is_var=False)
+                    # print(f"CAP: {cap}")
+                    # print(f"trans: {trans}")
+                    # print()
                     trans_cap = {word: paths for word, paths in cap.items() if word in trans} # intersect_storages(cap, trans)
+                    # print(f"trans cap {trans_cap}")
                     if len(trans_cap) == 0:
                         return
                     if len(intersections) < top_k:
@@ -267,6 +291,8 @@ class ERegexFuzzer(Fuzzer):
             else:
                 if len(intersections) < top_k:
                     update_storage(intersections, cap)
+        print("intersections")
+        print(intersections.keys())
         return intersections
     
     def pump(
@@ -277,7 +303,6 @@ class ERegexFuzzer(Fuzzer):
         intersection: Dict[str, Set[Path]],
         timeout: float = 2,
         rec_limit: int = 3,
-        visualize: bool = False,
         iter_range: List[int] = [1, 150, 10]) -> Optional[Tuple[int, Tuple]]:
         """Synchronous pumping
 
@@ -321,6 +346,7 @@ class ERegexFuzzer(Fuzzer):
             trans_subs: Dict[Regex, str]) -> Tuple[RECPattern, Dict[Regex, str]]:
             for var, sub in trans_subs.items():
                 var.substitute(sub)
+            
             # first var
             vars = {}
             first_sub = target_subs[target_vars[0]]
@@ -330,10 +356,15 @@ class ERegexFuzzer(Fuzzer):
             else:
                 f_name = "[" + PUMP_ID + next(self.key_generator) + "]"
             target_vars[0].substitute(f_name)
+            print("FIRST_SUB")
+            print(first_sub)
             vars[f_name] = RECPattern(first_sub[:f_idx] + f"({first_sub[f_idx:]})*")
+
             # last var
             if target_vars[-1] != target_vars[0]:
                 last_sub = target_subs[target_vars[-1]]
+                print("LAST_SUB")
+                print(last_sub)
                 l_idx = last_sub.find(inter) + len(inter)
                 if isinstance(target_vars[0], BackrefRegex):
                     l_name = "[" + target_vars[0].value.replace("\\", BASE_ID)  + "]"
@@ -341,6 +372,7 @@ class ERegexFuzzer(Fuzzer):
                     l_name = "[" + PUMP_ID + next(self.key_generator)  + "]"
                 target_vars[1].substitute(l_name)
                 vars[l_name] = RECPattern(f"({last_sub[:l_idx]})*" + last_sub[l_idx:])
+
             # core
             c_name = "[" + PUMP_ID + next(self.key_generator)  + "]"
             vars[c_name] = RECPattern(first_sub[:f_idx] + f"({inter})*")
@@ -348,6 +380,8 @@ class ERegexFuzzer(Fuzzer):
                 next(open_regex(case.sub(start=end + 1))) + postfix
             history = get_substitutions(case)
             case.delete_substitution()
+            print("REC_PATTERN")
+            print(RECPattern(attack, vars, history))
             return RECPattern(attack, vars, history)
   
         target_vars = [case.value[start], case.value[end]]
@@ -357,63 +391,69 @@ class ERegexFuzzer(Fuzzer):
         case.delete_substitution()
         postfix = get_attack_postfix(case)
         regex = case.sub(start, end + 1)
+        ordered(case)
+        str_case = str(case)
         max_score = -1
         result = None
+
         # substitutions casting
         for inter, memory in intersection.items():
             for path in memory:
+                # print(f"PATH: {inter}")
+                # print(target_vars[0], target_vars[1])
+                # print(target_vars[0] in path.value.keys())
+                # print(target_vars[1] in path.value.keys())
+                # print(path)
 
                 for word in reopen_regex(regex, path.value, rec_limit):
+                    print("OPEN")
+                    print(f"reopen_regex {regex.value}")
                     trans_subs = {var: var.substitution for var in trans_vars}
                     target_subs = {var: var.substitution for var in target_vars}
-                    ordered(case)
+                    # print("TARGET SUBS")
+                    # print(target_subs)
                     word = format_word(inter, target_subs, trans_subs, n=2)
-                    time = self.matcher.match_word(word, case.get_value_str(), timeout)
+                    time = self.matcher.match_word(word, str_case, timeout)
                     if time == timeout:
                         return EXP_AMBIGUOUS, format_pattern(inter, target_subs, trans_subs)
                     score = time / len(word)
                     if score > max_score:
                         max_score = score
                         result = [inter, target_subs, trans_subs]
-
         case.delete_substitution()
-        str_case = None
+        print(f"CASE AFTER DELETE: {case}")
         if result is None:
             return
         times, lens = [], []
         for k in range(*iter_range):
             word = format_word(*result, n=k)
-            if str_case is None:
-                ordered(case)
-                str_case = case.get_value_str() 
+            # print(str_case)
+            # print(word)
             time = self.matcher.match_word(word, str_case, timeout)
             if time == timeout:
                 return EXP_AMBIGUOUS, format_pattern(*result)
             lens.append(len(word))
             times.append(time)
         amb = self.ambiguity_analyzer.analyze(times, lens)
-        if visualize:
-            plot_dependance(
-                times, lens,
-                str_case + "\n" + \
-                format_pattern(*result).value)
         if amb > NO_AMBIGUOUS:
             return amb, format_pattern(*result)
     
     def _run_substitution(
         self,
         case: ConcatenationRegex,
-        max_radius: int = 4,
+        max_radius: int = 10,
         rec_limit: int = 3,
-        visualize: bool = False,
-        iter_range: List[int] = [1, 150, 10],
-        timeout: float = 2,
+        timeout: float = 0.8,
         first: bool = False) -> Dict[int, Tuple]:
+        print(f"START RUN {case}")
+
         prevs = []
         pumping_groups = {}
         if self.static_analyzer.analyze(ext_to_classic(case)) == NO_AMBIGUOUS:
             return pumping_groups
         for i, elem in enumerate(case.value):
+            print(f"ELEM {elem}")
+            print(f"PREVS {prevs}")
             if not isinstance(elem, BaseRegex):
                 if self.static_analyzer.analyze(ext_to_classic(case.sub(end=i + 1))) == NO_AMBIGUOUS:
                     prevs.append(i)
@@ -425,18 +465,11 @@ class ERegexFuzzer(Fuzzer):
                             [case.value[i], case.value[prev]]):
                             continue
                         trans_len = len(case.sub(prev + 1, i))
-                        radius_range = range(min(1, trans_len), max_radius)
+                        radius_range = range(max(1, trans_len), max_radius)
                         intersections = self._pump_neighborhood(case, prev, i, radius_range)
                         if intersections is None:
                             continue
-                        attack = self.pump(
-                            case,
-                            prev, i,
-                            intersections,
-                            timeout=timeout,
-                            rec_limit=rec_limit,
-                            visualize=visualize,
-                            iter_range=iter_range)
+                        attack = self.pump(case, prev, i, intersections, timeout, rec_limit)
                         if attack is not None:
                             self._update_pumping_groups(pumping_groups, attack)
                             if first:
@@ -449,8 +482,7 @@ class ERegexFuzzer(Fuzzer):
         substitutions: Iterable,
         max_radius: int = 10,
         rec_limit: int = 3,
-        visualize: bool = False,
-        timeout: float = 2,
+        timeout: float = 0.5,
         first: bool = True) -> Dict[int, Tuple]:
         
         def get_substitution(substitution: Any) -> Iterator[List[str|Regex]]:
@@ -472,9 +504,10 @@ class ERegexFuzzer(Fuzzer):
                         for postfix in get_substitution(substitution[1:]):
                             yield prefix + postfix
             elif isinstance(substitution, Callable):
-                word = substitution()
-                yield ["" if word is None else word]
+                yield [substitution()]
             elif isinstance(substitution, Iterator):
+                print("Iterator")
+                print(f"substitution {substitution}")
                 for word in next(substitution):
                     yield [word]
             else: # str or Regex
@@ -482,15 +515,11 @@ class ERegexFuzzer(Fuzzer):
         
         pumping_groups = {}
         for sub in get_substitution(substitutions):
+            print(f"SUBSTITUTION: {sub}")
+            print(sub[-1])
             case = ConcatenationRegex(
                 [BaseRegex(s) if isinstance(s, str) else s for s in sub])
-            for item in self._run_substitution(
-                case=case,
-                max_radius=max_radius,
-                rec_limit=rec_limit,
-                timeout=timeout,
-                visualize=visualize,
-                first=first).items():
+            for item in self._run_substitution(case, max_radius, rec_limit, timeout, first).items():
                 self._update_pumping_groups(pumping_groups, item)
         return pumping_groups
     
@@ -499,7 +528,6 @@ class ERegexFuzzer(Fuzzer):
         main_regex: Regex,
         max_radius: int = 10,
         rec_limit: int = 3,
-        visualize: bool = False,
         timeout: float = 2,
         first: bool = True) -> Dict[int, REMultipattern]:
         pumping_groups = {}
@@ -517,13 +545,36 @@ class ERegexFuzzer(Fuzzer):
             star = deep_copy_regex(regex)
             cases = [star, open_block(regex.value)]
             return cases
+        
+        def subs_generator(regex: Regex) -> Iterator[List[str]]:
+            if isinstance(regex, ConcatenationRegex):
+                if len(regex.value) == 1:
+                    for result in open_block(regex.value[0]):
+                        regex.substitute(result)
+                        yield result
+                else:
+                    for prefix in open_block(regex.value[0]):
+                        for suffix in open_block(regex.sub(start=1)):
+                            print(f"PREFIX({regex.value[0]}) + SUFFIX({regex.sub(start=1)})")
+                            print(prefix, suffix)
+                            result = prefix + suffix
+                            regex.substitute(result)
+                            yield result
+            elif isinstance(regex, AlternativeRegex):
+                for value in regex.value:
+                    for result in open_block(value):
+                        regex.substitute(result)
+                        yield result
+            # elif isinstance(regex, StarRegex):
+            #     for result in open_block(regex.value):
+            #         regex.substitute(result)
+            #         yield result
+            regex.substitute(None)
 
-        def process_static(regex: Regex, static_regex: str) -> bool:
+        def process_static(regex: Regex, static_regex: str):
             nonlocal return_flag
-            flag = False
             status = self.static_analyzer.analyze(static_regex)
             if status > NO_AMBIGUOUS:
-                flag = True
                 attack_pattern = format_static(
                     main_regex, regex, static_regex, self.key_generator)
                 self._update_pumping_groups(
@@ -531,7 +582,6 @@ class ERegexFuzzer(Fuzzer):
                     (status, attack_pattern))
                 if first:
                     return_flag = True
-            return flag
         
         def open_block(regex: Regex) -> Iterable:
             nonlocal return_flag
@@ -539,19 +589,24 @@ class ERegexFuzzer(Fuzzer):
                 return [str(regex)]
             
             if isinstance(regex, StarRegex):
+                print(f"STAR {regex}")
                 # check static
                 if not check_backref_inside(regex):
-                    if process_static(regex, str(regex)):
-                        return_flag = True
+                    process_static(regex, str(regex))
                     if return_flag:
                         return []
+                    return [regex]
+                
                 # check exp situation
                 value = regex.value
                 if isinstance(value, ConcatenationRegex):
+                    print(f"CONC STAR {value}")
                     if len(value) == 1:
                         value = value.value[0]
                     else:
+                        print(f"value {value}")
                         if not self._is_finite(value):
+                            print("DOUBLE ITER")
                             double_iter = ConcatenationRegex([regex.value, regex.value])
                             for pattern in self._process_regex(double_iter).values():
                                 pattern.apply(lambda x: 
@@ -562,18 +617,24 @@ class ERegexFuzzer(Fuzzer):
                                 if return_flag:
                                     return []
                 if isinstance(value, AlternativeRegex):
+                    print(f"ALT STAR {value}")
                     values = np.array(value.value)
                     alt_len = len(values)
                     indexes = range(alt_len)
-                    for k in range(1, alt_len // 2 + 1): 
+                    for k in range(1, alt_len // 2 + 1):
+                        print(f"K = {k} from {len(indexes)}")
                         for mask in combinations(indexes, k):
                             mask = list(mask)
+                            print(f"mask {mask}")
                             alt_1 = StarRegex(AlternativeRegex(values[mask]) 
-                                if len(values[mask]) > 1 else values[mask][0])
+                                if len(mask) > 1 else values[mask[0]])
                             inverse_mask = invert_mask(mask, alt_len)
                             alt_2 = StarRegex(AlternativeRegex(values[inverse_mask])
-                                if len(values[inverse_mask]) > 1 else values[inverse_mask][0])
+                                if len(inverse_mask) > 1 else values[inverse_mask[0]])
                             double_alt = ConcatenationRegex([alt_1, alt_2])
+                            print("DOUBLE ALT")
+                            print(double_alt)
+                            double_alt.plot().render(f"visualization/double_{mask[0]}.gv", format="png")
                             for pattern in self._process_regex(double_alt).values():
                                 pattern.apply(lambda x: 
                                     format_recattack(main_regex, regex, x, self.key_generator))
@@ -583,7 +644,8 @@ class ERegexFuzzer(Fuzzer):
                                 if first:
                                     return_flag = True
                                     return []
-                if isinstance(value, StarRegex):    
+                if isinstance(value, StarRegex):
+                    print(f"STAR STAR {value}")
                     attack_pattern = format_nssnf(main_regex, regex, value, self.key_generator)
                     self._update_pumping_groups( 
                         pumping_groups,
@@ -591,20 +653,23 @@ class ERegexFuzzer(Fuzzer):
                     if first:
                         return_flag = True
                         return []
-                # constructing substitutions          
-                cases = [] # [EMPTY]
-                if check_group_inside(regex.value):
-                    
-                    cases.append(regex)
+                # constructing substitutions
+                print(f"STAR {regex}")
+                cases = [EMPTY]
+                if check_group_inside(regex):
+                    print("KLEEEEENE")
                     cases.append(kleene_open(regex))
                 elif check_backref_inside(regex):
                     cases.append(open_block(regex.value))
                     cases.append(regex)
                 else:
                     cases.append(regex)
+                print("CASES")
+                print(cases)
                 return tuple(cases)
             
             if isinstance(regex, ConcatenationRegex):
+                print(f"CONC {regex}")
                 # check static parts
                 static_regex = ""
                 for value in regex.value:
@@ -623,11 +688,12 @@ class ERegexFuzzer(Fuzzer):
                 # constructing substitutions
                 if self._is_group(regex, main_regex):
                     # another cases are simplified
-                    return [get_generator(open_regex, regex)]
-                
+                    return [get_generator(subs_generator, regex)]
+                print(f"HERE {regex}")
                 return [open_block(value) for value in regex.value]
             
-            if isinstance(regex, AlternativeRegex):             
+            if isinstance(regex, AlternativeRegex):
+                print(f"ALT {regex}")
                 # check static parts
                 static_regex = ""
                 for value in regex.value:
@@ -639,17 +705,21 @@ class ERegexFuzzer(Fuzzer):
                 # constructing substitutions
                 if self._is_group(regex, main_regex):
                     if self._is_finite(regex):
-                        return [get_generator(open_regex, regex)]
+                        return [get_generator(subs_generator, regex)]
                     return [regex]
                 return (v for value in regex.value for v in open_block(value))
             
-            if isinstance(regex, BackrefRegex): 
+            if isinstance(regex, BackrefRegex):
+                print(f"REF {regex}")
                 if self._check_node_inside(main_regex, lambda x: x == regex.regex_value):
                     if self._get_backref_type(regex, main_regex) == SUBSTITUTION:
                         return [regex.regex_value.get_substitution]
                 return [regex]
 
+        print("main_regex")
+        print(main_regex)
         block_value = open_block(main_regex)
+        print(f"BLOCK value {block_value}")
         if return_flag:
             return pumping_groups
         attacks = self._process_substitutions(
@@ -657,7 +727,6 @@ class ERegexFuzzer(Fuzzer):
             max_radius=max_radius,
             timeout=timeout,
             first=first,
-            visualize=visualize,
             rec_limit=rec_limit)
         for item in attacks.items():
             self._update_pumping_groups(pumping_groups, item)

@@ -81,7 +81,6 @@ class REPattern(Pattern):
             if isinstance(elem, str):
                 result += elem
             elif elem in vars:
-                print(elem.regex)
                 result += f"\\{vars[elem]}"
             else:
                 vars[elem] = i + 1

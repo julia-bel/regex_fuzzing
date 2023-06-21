@@ -23,8 +23,6 @@ def open_regex(regex: Regex, rec_limit: int = 1) -> Iterator[str]:
             regex.substitute("")
             yield ""
         if len(regex.value) == 1:
-            print(f"single child: {regex.value[0]}")
-            print("")
             for first_child in open_regex(regex.value[0], rec_limit):
                 regex.substitute(first_child)
                 yield first_child
@@ -81,12 +79,10 @@ def get_regex_first_k(regex: Regex, k: int) -> Tuple[Set[str], Set[str]]:
         exact.update(e)
         sub.update(s)
         for part in range(1, k):
-            # print(f"k={part}")
             e, s = get_regex_first_k(regex.value, part)
-            # print(f"first: {e, s}")
             if part != 0 and len(e) > 0:
                 for i in range(1, k // part + 1):
-                    # print("here")
+                    # 
                     mod = k - i * part
                     if mod == 0:
                         exact.update(set("".join(item) for item in product(e, repeat=i)))
@@ -108,9 +104,7 @@ def get_regex_last_k(regex: Regex, k: int) -> Tuple[Set[str], Set[str]]:
 
 def get_n_neighborhood(start_regex: Regex, end_regex: Regex, n: int, k: int) -> Set[str]:
     prefix = get_regex_last_k(start_regex, n)
-    # print(f"prefixes: {prefix}")
     suffix = get_regex_first_k(end_regex, k - n)
-    # print(f"suffixes: {suffix}")
     prefix = prefix[0].union(prefix[1])
     suffix = suffix[0].union(suffix[1])
     neighborhood = set(p + s for p in prefix for s in suffix)
@@ -118,7 +112,6 @@ def get_n_neighborhood(start_regex: Regex, end_regex: Regex, n: int, k: int) -> 
 
 
 def get_zero_neighborhood(regex: Regex, k: int) -> Set[str]:
-    print(f"regex: {regex} k: {k}")
     neighborhood = set()
     if isinstance(regex, BaseRegex):
         if len(regex) == k:
@@ -133,7 +126,5 @@ def get_zero_neighborhood(regex: Regex, k: int) -> Set[str]:
         neighborhood.update(get_zero_neighborhood(regex.value[-1], k))
     else: # if isinstance(regex, StarRegex):
         for n in range(k + 1):
-            # print(f"n: {n}")
             neighborhood.update(get_n_neighborhood(regex, regex, n, k))
-    # print(f"neighborhood: {neighborhood}")
     return neighborhood

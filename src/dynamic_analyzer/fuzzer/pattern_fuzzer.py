@@ -1,11 +1,10 @@
-import re
 from typing import List, Set, Dict, Tuple, Optional, Iterable
 
 from src.const import (EXP_AMBIGUOUS, NO_AMBIGUOUS)
 from src.dynamic_analyzer.ambiguity_analyzer import AmbiguityAnalyzer
 from src.dynamic_analyzer.utils import (
-    trim_last, trim_first, get_attack_postfix,
-    check_intersection, get_overlapping, format_static)
+    trim_last, trim_first, get_attack_postfix, key_generator,
+    check_intersection, get_overlapping, format_static, plot_dependance)
 from src.dynamic_analyzer.neightborhood.pattern_utils import (
     get_regex_first_k, get_regex_last_k, open_regex,
     get_n_neighborhood, get_zero_neighborhood)
@@ -31,6 +30,7 @@ class REPatternFuzzer(Fuzzer):
         ambiguity_analyzer: AmbiguityAnalyzer):
         super().__init__(matcher, static_analyzer, ambiguity_analyzer)
         self.genetic_fuzzer = fuzzer
+        self.key_generator = key_generator()
 
     def _simplify_pattern(self, pattern: REPattern) -> REPattern:
         for elem in pattern.value:
@@ -81,35 +81,23 @@ class REPatternFuzzer(Fuzzer):
         end: int,
         radius_range: Iterable[int],
         top_k: int = 5) -> Optional[List[str]]:
-        print("PUMP")
         if self.static_analyzer.analyze(pattern.sub(start, end + 1).get_regular_str()) == NO_AMBIGUOUS:
             return
         intersections = set()
-        print("here")
         for k in radius_range:
             if pattern.value[start] != pattern.value[end]:
                 x_1 = self._get_neighborhood(start, pattern, k)
                 x_2 = self._get_neighborhood(end, pattern, k)
-                print(f"x1 {pattern.sub(start, start + 1)}, k = {k}")
-                print(x_1)
-
-                print(f"x2 {pattern.sub(end, end + 1)}, k = {k}")
-                print(x_2)
                 if len(x_1) == 0 or len(x_2) == 0:
                     break
                 cap = x_1.intersection(x_2)
-            else:
-                print(f"x1 {pattern.sub(start, start + 1)}, k = {k}")
-                cap = self._get_neighborhood(start, pattern, k)
-                print(cap)
+            else:    
+                cap = self._get_neighborhood(start, pattern, k)            
             if len(cap) == 0:
                 return
             if end - start > 1:
-                for n in range(0, k // 2):
-                    print("TRANS NEIGH")
+                for n in range(0, k // 2):     
                     trans = self._get_neighborhood(start + 1, pattern, k, n)
-                    print(f"trans {n}")
-                    print(trans)
                     trans_cap = cap.intersection(trans)
                     if len(trans_cap) == 0:
                         return
@@ -120,8 +108,6 @@ class REPatternFuzzer(Fuzzer):
                 for c in cap:
                     if len(intersections) < top_k:
                         intersections.add(c) 
-        print("intersections")
-        print(intersections)
         return sorted(intersections)
     
     def _pump_prefix(
@@ -130,8 +116,6 @@ class REPatternFuzzer(Fuzzer):
         w1: str, 
         w2: str, 
         iter_limit: int = 10) -> Optional[int]:
-        print(f"prefix search {w1} {w2}")
-
         overlap = get_overlapping(w2, w1)
         if len(overlap) == 0:
             return
@@ -156,8 +140,6 @@ class REPatternFuzzer(Fuzzer):
         w1: str, 
         w2: str, 
         iter_limit: int = 10) -> Optional[int]:
-        print(f"suffix search {w1} {w2}")
-
         overlap = get_overlapping(w1, w2)
         if len(overlap) == 0:
             return
@@ -241,6 +223,7 @@ class REPatternFuzzer(Fuzzer):
         timeout: float = 2,
         num_epochs: int = 10,
         rec_limit: int = 3,
+        visualize: bool = False,
         iter_range: List[int] = [1, 100, 10],
         genetic: bool = False,
         iter_limit: int = 10) -> Optional[Tuple[int, RECPattern]]:
@@ -269,29 +252,19 @@ class REPatternFuzzer(Fuzzer):
                 var.regex.substitute(sub)
             # target
             for i, var in enumerate(target_vars):
-                sub = target_subs[var]
-                # print("REGEX VALUE")
-                # print(var.regex)
+                sub = target_subs[var]   
                 var.regex.substitute(sub[0] + sub[1] * n if i == 0 else sub[0] * n + sub[1])
             # core
             core = inter[0] + inter[1] * (2 * n)
             attack = next(open_regex(pattern_regex.sub(end=start))) + core + postfix
-
-            print("ATTACK")
-            print(attack)
-            print("-----------")
-
-            pattern_regex.delete_substitution()
-            # print(f"regex: {target_vars[0].regex.value}")
-            # print(f"substitution: {target_vars[0].regex.substitution}")
-            # print("DELETED")
+            pattern_regex.delete_substitution()  
             return attack
         
         def format_pattern(
             inter: Tuple[str, str],
             target_subs: List[Tuple[str, str]],
             trans_subs: List[str]) -> RECPattern:
-            print("FORMAT")
+            
             # transition
             for var, sub in trans_subs.items():
                 var.regex.substitute(sub)
@@ -300,17 +273,15 @@ class REPatternFuzzer(Fuzzer):
             for i, var in enumerate(target_vars):
                 sub = target_subs[var]
                 name = f"[{PUMP_ID}{i}]"
-                # print(f"regex: {var.regex.value}")
-                # print(f"substitution: {var.regex.substitution}")
                 var.regex.substitute(name)
                 if sub[0] and sub[1]:
-                    vars[name] = sub[0] + f"({sub[1]})*" if i == 0 else f"({sub[0]})*" + sub[1]
+                    vars[name] = RECPattern(sub[0] + f"({sub[1]})*" if i == 0 else f"({sub[0]})*" + sub[1])
                 else:
-                    vars[name] = f"({sub[0] + sub[1]})*"
+                    vars[name] = RECPattern(f"({sub[0] + sub[1]})*")
             # core
             c_name = "[" + PUMP_ID + "2]"
-            vars[c_name] = inter[0] + f"({inter[1]})*"
-            # print(pattern_regex.sub(end=start))
+            vars[c_name] = RECPattern(inter[0] + f"({inter[1]})*")
+            
             attack_format = next(open_regex(pattern_regex.sub(end=start))) + c_name + \
                 next(open_regex(pattern_regex.sub(start=end + 1))) + postfix
             pattern_regex.delete_substitution()
@@ -326,7 +297,6 @@ class REPatternFuzzer(Fuzzer):
         postfix = get_attack_postfix(pattern_regex)
         result = None
         for inter in intersection:
-            print(f"inter {inter}")
             # target vars
             target_subs = {}
             for i, var in enumerate(target_vars):
@@ -337,12 +307,9 @@ class REPatternFuzzer(Fuzzer):
                 if search_result is None:
                     target_subs = {}
                     break
-                # print("SEARCH RES")
-                # print(search_result)
                 target_subs[var] = search_result
             if len(target_subs) == 0:
                 continue
-            
             # transition vars
             trans_subs = {}
             if len(trans_vars) > 0:
@@ -352,7 +319,7 @@ class REPatternFuzzer(Fuzzer):
                     "".join(target_subs[target_vars[-1]])]
                 regex = pattern_regex.sub(start + 1, end)
                 for word in open_regex(regex, rec_limit=len(inter)):
-                    print(f"WORD: {word} for regex {regex}")
+                    
                     if double_inter.find(word) > -1 and \
                         get_overlapping(traget_words[0], word) and \
                             get_overlapping(word, traget_words[-1]):
@@ -374,6 +341,11 @@ class REPatternFuzzer(Fuzzer):
                 lens.append(len(word))
                 times.append(time)
             amb = self.ambiguity_analyzer.analyze(times, lens)
+            if visualize:
+                plot_dependance(
+                    times, lens,
+                    ext_regex + "\n" + \
+                    format_pattern(*result).value)
             if amb > NO_AMBIGUOUS:
                 return amb, format_pattern(*result)
         
@@ -415,6 +387,7 @@ class REPatternFuzzer(Fuzzer):
         max_radius: int = 10,
         timeout: float = 2,
         rec_limit: int = 3,
+        visualize: bool = False,
         genetic: bool = False,
         first: bool = True) -> Dict[int, REMultipattern]:
         """Main loop for pattern analyzing
@@ -435,12 +408,12 @@ class REPatternFuzzer(Fuzzer):
         pumping_groups = {}
         if self.static_analyzer.analyze(pattern.get_regular_str()) == NO_AMBIGUOUS:
             return pumping_groups
-        print(pattern)
+        
         for i, elem in enumerate(pattern.value):
             if isinstance(elem, REVariable):
                 status = self.static_analyzer.analyze(str(elem.regex))
                 if status > NO_AMBIGUOUS:
-                    attack_pattern = format_static(regex, elem.regex, str(elem.regex))
+                    attack_pattern = format_static(regex, elem.regex, str(elem.regex), self.key_generator)
                     # attack_pattern = make_attack_pattern(
                     #     pattern.sub(i).get_ext_regex(),
                     #     elem.regex,
@@ -456,7 +429,7 @@ class REPatternFuzzer(Fuzzer):
                         prevs.append(i)
                         continue
                     for prev in prevs:
-                        print(f"PREV {pattern.value[prev]}")
+                        
                         if check_intersection(
                             prevs[prev + 1:],
                             [pattern.value[i], pattern.value[prev]]):
@@ -472,6 +445,7 @@ class REPatternFuzzer(Fuzzer):
                             prev, i,
                             intersections,
                             timeout=timeout,
+                            visualize=visualize,
                             genetic=genetic,
                             rec_limit=rec_limit)
                         if attack is not None:

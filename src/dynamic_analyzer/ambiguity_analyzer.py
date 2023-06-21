@@ -33,4 +33,4 @@ class AmbiguityAnalyzer:
     def analyze(self, time: List[float], length: List[int]) -> int:
         last_k = time[-1] / length[-1]
         mean_k = np.mean(time) / np.mean(length)
-        return POLY_AMBIGUOUS if last_k / mean_k > 0.6 else NO_AMBIGUOUS
+        return POLY_AMBIGUOUS if last_k / mean_k > 0.55 else NO_AMBIGUOUS

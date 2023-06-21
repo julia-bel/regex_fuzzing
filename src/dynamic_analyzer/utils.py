@@ -2,6 +2,7 @@ from typing import Set, Callable, Iterator, List, Any, Optional, Dict, Tuple
 import re
 import random
 import numpy as np
+import matplotlib.pyplot as plt
 
 from src.const import ALPHABET, EPSILON
 from src.dynamic_analyzer.neightborhood.pattern_utils import open_regex
@@ -9,7 +10,7 @@ from src.multipattern.recpattern import RECPattern
 from src.dynamic_analyzer.const import BASE_ID, PUMP_ID
 from src.eregex.regex import (
     Regex, BaseRegex, StarRegex, BackrefRegex,
-    AlternativeRegex, ConcatenationRegex)
+    AlternativeRegex, ConcatenationRegex, get_substitutions)
 
 
 def get_last(regex: Regex) -> Set[str]:
@@ -73,15 +74,6 @@ def check_intersection(
             return True
     return False
 
-# TODO: modify
-def check_regex_intersection(
-    source: List[Regex],
-    target: List[Regex]) -> bool:
-    for s in source:
-        if s in target:
-            return True
-    return False
-
 
 def get_attack_postfix(regex: Regex) -> str:
     return random.choice(list(ALPHABET.difference(get_last(regex))))
@@ -95,27 +87,6 @@ def trim_last(words: Tuple[Set[str], Set[str]]) -> List[str]:
 def trim_first(words: Tuple[Set[str], Set[str]]) -> List[str]:
     words = words[0].union(words[1])
     return list(set([w[i:] for w in words for i in range(len(w))]))
-
-
-# def make_attack_pattern(
-#     prefix: Regex,
-#     var: Regex,
-#     suffix: Optional[str] = None) -> REPattern:
-#     attack = [next(open_regex(prefix)), REVariable(var)]
-#     if suffix is not None:
-#         attack.append(suffix)
-#     return REPattern(attack)
-
-
-# def make_attack_pattern(
-#     main_regex: Regex,
-#     regex: Regex,
-#     suffix: Optional[str] = None) -> RECPattern:
-#     regex.substitute(str(regex))
-#     result = next(open_regex(main_regex))
-#     if suffix is not None:
-#         attack.append(suffix)
-#     return RECPattern(attack)
 
 
 def invert_mask(indexes: List[int], size: int) -> np.ndarray:
@@ -138,36 +109,23 @@ def get_overlapping(s1: str, s2: str) -> str:
     return result
 
 
-# def replace_with_var(word: str, vars: List[REVariable]|Dict[int, REVariable]) -> REPattern:
-#     i = 0
-#     pattern = []
-#     while i < len(word):
-#         if word[i] != "{":
-#             pattern.append(word[i])
-#         else:
-#             id = get_digit_prefix(word[i+1:])
-#             pattern.append(vars[id])
-#             i += len(id) + 1
-#         i += 1
-#     return REPattern(pattern)
-
-
-# def format_static(main_regex: Regex, regex: Regex, regex_string: str) -> REPattern:
-#     regex.substitute("{0}")
-#     result = next(open_regex(main_regex))
-#     result += get_attack_postfix(main_regex)
-#     main_regex.delete_substitution()
-#     return replace_with_var(result, [REVariable(ERegexParser(regex_string).parse())])
+def check_regex_intersection(
+    source: List[Regex],
+    target: List[Regex]) -> bool:
+    for s in source:
+        if s in target:
+            return True
+    return False
 
 
 def format_static(
     main_regex: Regex,
     regex: Regex,
     regex_string: str,
-    idx: str = "0") -> RECPattern:
-    s_name = "[" + BASE_ID + idx + "]" 
-    regex.substitute(s_name)
-    vars = {s_name: regex_string}
+    idx: Iterator[str]) -> RECPattern:
+    regex_name = "[" + BASE_ID + next(idx) + "]" 
+    regex.substitute(regex_name)
+    vars = {regex_name: regex_string}
     return format_recpattern(main_regex, vars)
 
 
@@ -186,23 +144,33 @@ def get_backrefs(source: Regex) -> List[BackrefRegex]:
 
 def format_recpattern(
     main_regex: Regex,
-    vars: Optional[Dict] = None) -> RECPattern:
+    vars: Optional[Dict] = None,
+    postfix: bool = True) -> RECPattern:
     vars = {} if vars is None else vars
     for p in get_backrefs(main_regex):
         name = "[" + p.value.replace("\\", BASE_ID) + "]"
+        if name not in vars:
+            vars[name] = format_recpattern(p.regex_value, postfix=False)
         p.substitute(name)
         p.regex_value.substitute(name)
-        if name not in vars:
-            vars[name] = format_recpattern(p.regex_value)
-    result = next(open_regex(main_regex)) + get_attack_postfix(main_regex)
+    result = next(open_regex(main_regex))
+    if postfix:
+        result += get_attack_postfix(main_regex)
+    history = get_substitutions(main_regex)
     main_regex.delete_substitution()
-    return RECPattern(result, vars)
+    return RECPattern(result, vars, history)
 
 
-def format_nssnf(main_regex: Regex, regex: Regex, idx: str) -> RECPattern:
-    s_name = "[" + PUMP_ID + idx + "]" 
-    regex.substitute(s_name)
-    vars = {s_name: format_recpattern(regex)}
+def format_nssnf(main_regex: Regex, regex: Regex, value: Regex, idx: Iterator[str]) -> RECPattern:
+    regex_name = "[" + PUMP_ID + next(idx) + "]"
+    regex.substitute(regex_name)
+
+    inner = value.value
+    inner_name = "[" + PUMP_ID + next(idx) + "]"
+    inner_pattern = format_recpattern(inner)
+    inner.substitute(inner_name)
+
+    vars = {regex_name: RECPattern(f"(({inner_name})*)*", {inner_name: inner_pattern})}
     return format_recpattern(main_regex, vars)
 
 
@@ -210,9 +178,27 @@ def format_recattack(
     main_regex: Regex,
     regex: Regex,
     pattern: RECPattern,
-    idx: str) -> RECPattern:
-    s_name = "[" + PUMP_ID + idx + "]" 
-    regex.substitute(s_name)
+    idx: Iterator[str]) -> RECPattern:
+    for r, sub in pattern.history.items():
+        r.substitute(sub)
+    regex_name = "[" + PUMP_ID + next(idx) + "]" 
+    regex.substitute(regex_name)
     vars = pattern.get_all_vars()
-    vars[s_name] = pattern
+    vars[regex_name] = pattern
     return format_recpattern(main_regex, vars)
+
+
+def plot_dependance(
+    time: List[float],
+    length: List[int],
+    title: str,
+    linestyle: str = '-o',
+    dpi: int = 300,
+    keys: Iterator[str] = key_generator()):
+
+    plt.figure(dpi=dpi)
+    plt.plot(length, time, linestyle)
+    plt.xlabel('Length, chars')
+    plt.ylabel('Time, seconds')
+    plt.title(title)
+    plt.savefig(f"src/visualization/dependance_{next(keys)}.png", dpi=dpi)

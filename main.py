@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import argparse
 
 from src.const import POLY_AMBIGUOUS
@@ -12,6 +12,16 @@ from src.dynamic_analyzer.ambiguity_analyzer import AmbiguityAnalyzer
 from src.wrappers.regex_matcher import RegexMatcher
 
 
+def test(index: str, path: str, encoding="utf8") -> List[str]:
+    preprocess = lambda x: x.rstrip("\n").replace("\\\\", "\\")
+    with open(path, "r", encoding=encoding) as file:
+        if index == "-1":
+            test = [preprocess(line) for line in file.readlines()]
+        else:
+            test = [preprocess(file.readlines()[int(index)])]
+    return test
+
+
 def log(ambs: Optional[Dict[int, REMultipattern]] = None):
     if ambs is None or len(ambs) == 0:
         print("No ambiguity found")
@@ -23,9 +33,10 @@ def log(ambs: Optional[Dict[int, REMultipattern]] = None):
 
 def main(
     value: str,
+    example: bool = False,
     radius: int = 10,
-    timeout: float = 0.5,
-    first: bool = True,
+    timeout: float = 2,
+    first: bool = False,
     pattern: bool = False,
     genetic: bool = False,
     rec_limit: int = 3,
@@ -35,113 +46,113 @@ def main(
     analyzer = StaticAnalyzer()
     ambiguity_analyzer = AmbiguityAnalyzer()
 
-    value = ERegexParser(value).parse()
-    if len(visualize) > 0:
-        value.plot().render(visualize, format="png")
-    # TODO: try...except
-    # try:
     if pattern:
-        fuzzer = REPatternFuzzer(GeneticFuzzer(), matcher, analyzer, ambiguity_analyzer)
-        log(fuzzer.run(
-            value,
-            max_radius=radius,
-            timeout=timeout,
-            genetic=genetic,
-            rec_limit=rec_limit,
-            first=first))
+        fuzzer = REPatternFuzzer(
+            GeneticFuzzer(), matcher, analyzer, ambiguity_analyzer)
     else:
         fuzzer = ERegexFuzzer(matcher, analyzer, ambiguity_analyzer)
-        log(fuzzer.run(
-            value,
-            max_radius=radius,
-            timeout=timeout,
-            rec_limit=rec_limit,
-            first=first))
-    # except:
-    #     log()
+
+    if len(example) > 0:
+        for sample in test(value, example):
+            print(f"Example: {sample}")
+            sample = ERegexParser(sample).parse()
+            try:
+                if pattern:
+                    log(fuzzer.run(
+                        sample,
+                        max_radius=radius,
+                        timeout=timeout,
+                        genetic=genetic,
+                        rec_limit=rec_limit,
+                        visualize=visualize,
+                        first=first))
+                else:
+                    log(fuzzer.run(
+                        sample,
+                        max_radius=radius,
+                        timeout=timeout,
+                        rec_limit=rec_limit,
+                        visualize=visualize,
+                        first=first))
+            except:
+                log()
+            print()
+    else:
+        sample = ERegexParser(value).parse()
+        # try:
+        if pattern:
+            log(fuzzer.run(
+                sample,
+                max_radius=radius,
+                timeout=timeout,
+                genetic=genetic,
+                rec_limit=rec_limit,
+                visualize=visualize,
+                first=first))
+        else:
+            log(fuzzer.run(
+                sample,
+                max_radius=radius,
+                timeout=timeout,
+                rec_limit=rec_limit,
+                visualize=visualize,
+                first=first))
+        # except:
+        #     log()
+
 
 if __name__ == "__main__":
-    # i = pump_suffix("ab", "baba")
-    # print("ab"[:i], "ab"[i:])
-
-    from src.dynamic_analyzer.neightborhood.eregex_utils import get_regex_first_k, get_zero_neighborhood
-    regex = ERegexParser("a*").parse()
-
-    res = get_regex_first_k(regex, 2)
-    # for n, v in res.items():
-    #     for p in v:
-    #         print("-" * 20)
-    #         for i, ii  in p.value.items():
-    #             print(type(i))
-    #             print(f"{i}: {ii}")
-    print("RESULT")
-    print(res)
-    # for a in res:
-    #     prev = None
-    #     for p in res['a']:
-    #         print(p == prev)
-    #         print(p.value)
-    #         prev = p
-    #         # print(p.__hash__())
-    #         # print(p.__hash__())
-
-    # base_examples = ["a(a*)\\1", "bcaa(c*)cccc\\1", "a(a*)(b|a)*a\\1"]
-    # from src.dynamic_analyzer.neightborhood.pattern_utils import get_regex_first_k
-
-    # regex = ERegexParser("(ab)*").parse()
-    # print(get_regex_first_k(regex, 5))
-
-    # parser = argparse.ArgumentParser(
-    #     description='''Dynamic complexity analysis of regular expressions and re-patterns''')
-    # parser.add_argument('value', help='value to analyze')
-    # parser.add_argument(
-    #     '-v', '--visualize',
-    #     action='store',
-    #     default='',
-    #     type=str,
-    #     help='path to file for structure visualization')
-    # parser.add_argument(
-    #     '-t', '--timeout',
-    #     action='store',
-    #     default=2,
-    #     type=float,
-    #     help='timeout for matching')
-    # parser.add_argument(
-    #     '-r', '--radius',
-    #     action='store',
-    #     type=int,
-    #     default=10,
-    #     help='max radius for neighborhood extension')
-    # parser.add_argument(
-    #     '-p', '--pattern',
-    #     action='store_true',
-    #     help='re-pattern mode')
-    # parser.add_argument(
-    #     '-g', '--genetic',
-    #     action='store_true',
-    #     help='whether to use genetic algorithms for pattern analysis')
-    # parser.add_argument(
-    #     '-d', '--depth',
-    #     default=3,
-    #     type=int,
-    #     help='limit for recursive opening of regexes')
-    # parser.add_argument(
-    #     '-f', '--first',
-    #     action='store_true',
-    #     help='whether to show first vulnerability')
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser(
+        description='''Dynamic complexity analysis of regular expressions and re-patterns''')
+    parser.add_argument('value', help='value to analyze')
+    parser.add_argument(
+        '-e', '--example',
+        action='store',
+        default='',
+        type=str,
+        help='the path to the test file')
+    parser.add_argument(
+        '-v', '--visualize',
+        action='store_true',
+        help='whether to visualize pumping dependencies')
+    parser.add_argument(
+        '-t', '--timeout',
+        action='store',
+        default=2,
+        type=float,
+        help='the timeout for matching')
+    parser.add_argument(
+        '-r', '--radius',
+        action='store',
+        type=int,
+        default=10,
+        help='the max radius for neighborhood extension')
+    parser.add_argument(
+        '-p', '--pattern',
+        action='store_true',
+        help='re-pattern mode')
+    parser.add_argument(
+        '-g', '--genetic',
+        action='store_true',
+        help='whether to use genetic algorithms for analysis')
+    parser.add_argument(
+        '-d', '--depth',
+        default=3,
+        type=int,
+        help='the limit for recursive opening of regexes')
+    parser.add_argument(
+        '-f', '--first',
+        action='store_true',
+        help='whether to show the first vulnerability')
+    args = parser.parse_args()
     
-    # main(
-    #     value=args.value,
-    #     pattern=args.pattern,
-    #     timeout=args.timeout,
-    #     rec_limit=args.depth,
-    #     genetic=args.genetic,
-    #     radius=args.radius,
-    #     first=args.first,
-    #     visualize=args.visualize)
-
-    # "(ba)*b(ab)*"
-    # "(a*)aaaa\\1"
-    # "((ba)*)aaa(ab)*a\\1"
-    # "(a*b*)aaaaab*b\\1"
+    main(
+        value=args.value,
+        example=args.example,
+        pattern=args.pattern,
+        timeout=args.timeout,
+        rec_limit=args.depth,
+        genetic=args.genetic,
+        radius=args.radius,
+        first=args.first,
+        visualize=args.visualize)

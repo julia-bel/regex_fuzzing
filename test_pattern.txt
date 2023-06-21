@@ -1,0 +1,10 @@
+(a|a)*
+(a*)*bcda*aa*(c|d|a)*
+((ba)*)aaa(ab)*a\\1bab
+(c|bb|d)*aaa(ba)*b
+(dddd|db)*d(bd)*ab*
+ab(c*)dcb(c*)\\1\\2(a)*
+(a*)aaaa\\1
+a(a*)(b|a*)a\\1a\\2
+((b|a)*)bd(b*)\\1bbb\\3
+(a*b*)aaaaab*b\\1a

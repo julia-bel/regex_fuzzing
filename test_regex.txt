@@ -1,0 +1,10 @@
+(a|a)*
+(a*)aa(\1)*dabaa
+((aaa)*)*bsma(d|a)
+msn((ba)*)aaa(ab)*a\1
+ddddab(a*b*)aaaaab*b\1
+cd(ab|a)*ab(ab)*
+(ab)*(ab|a)*aaaab(ab)*
+(ab|a)*ab(\1)*bb
+(ab(a*)aaa)*ab(ab)*bb\1*
+(abbb(b*))b*\2b*ddba

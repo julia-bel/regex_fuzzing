@@ -1,7 +1,10 @@
 from re import match
 
-from src.eregex.const import (L_PAR, R_PAR, KLEENE_STAR, ALTERNATIVE, DIGITS, BACKSLASH)
-from src.eregex.regex import (BaseRegex, StarRegex, Regex, BackrefRegex, ConcatenationRegex, AlternativeRegex)
+from src.eregex.const import (
+    L_PAR, R_PAR, KLEENE_STAR, ALTERNATIVE, DIGITS, BACKSLASH)
+from src.eregex.regex import (
+    BaseRegex, StarRegex, Regex,
+    BackrefRegex, ConcatenationRegex, AlternativeRegex)
 
 
 class ERegexParser:
@@ -32,10 +35,11 @@ class ERegexParser:
             char = self.next_char()
             if char == L_PAR:
                 self.opened_parentheses += 1
+                id = self.opened_parentheses
                 add2parsed(curr_regex)
                 curr_regex = ""
                 parsed.append(self.parse())
-                self.capture_groups[str(self.closed_parentheses)] = parsed[-1]
+                self.capture_groups[str(id)] = parsed[-1]
             elif char == R_PAR:
                 self.closed_parentheses += 1
                 assert self.closed_parentheses <= self.opened_parentheses, "invalid parentheses"
@@ -45,8 +49,6 @@ class ERegexParser:
                     if len(parsed) != alternative + 1:
                         parsed = parsed[:alternative] + [ConcatenationRegex(parsed[alternative:], group=True)]
                     return AlternativeRegex(parsed, group=True)
-                print("curr:")
-                print([str(p) for p in parsed])
                 return ConcatenationRegex(parsed, group=True)
             elif char == ALTERNATIVE:
                 add2parsed(curr_regex)
